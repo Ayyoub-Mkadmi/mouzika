@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:mouzika/backend/youtube_downloader.dart';
+import 'package:mouzika/screens/music_library_screen.dart';
 import '../models/video_result.dart';
 import '../services/api_service.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
@@ -15,6 +20,39 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _isLoading = false;
   String? _error;
   bool _isDarkMode = false;
+
+  Future<String> storeMp3(Uint8List bytes, String filename) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final path = '${dir.path}/$filename.mp3';
+    final file = File(path);
+    await file.writeAsBytes(bytes);
+    return path;
+  }
+
+  Future<bool> _downloadAndSaveMp3(String videoUrlOrId, String fileName) async {
+    try {
+      final bytes = await YouTubeMp3PlayerService.convertVideoToMp3(
+        videoUrlOrId,
+      );
+
+      final dir = await getApplicationDocumentsDirectory();
+      final mp3Dir = Directory('${dir.path}/mp3s');
+
+      if (!await mp3Dir.exists()) {
+        await mp3Dir.create(recursive: true);
+      }
+
+      final sanitizedTitle = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final file = File('${mp3Dir.path}/$sanitizedTitle.mp3');
+      await file.writeAsBytes(bytes);
+
+      debugPrint('Saved MP3 to: ${file.path}');
+      return true;
+    } catch (e) {
+      debugPrint('Failed to download: $e');
+      return false;
+    }
+  }
 
   Future<void> _searchVideos(String query) async {
     if (query.isEmpty) return;
@@ -169,22 +207,45 @@ class _SearchScreenState extends State<SearchScreen> {
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.download,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    onPressed: () {
-                      // Download functionality
-                      print('Download tapped for ${video.title}');
-                    },
+                  Builder(
+                    builder:
+                        (context) => IconButton(
+                          icon: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).primaryColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.download,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                          onPressed: () async {
+                            final success = await _downloadAndSaveMp3(
+                              video.videoId, // or video.id
+                              video.title,
+                            );
+
+                            if (success && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Downloaded "${video.title}.mp3" to app storage',
+                                  ),
+                                ),
+                              );
+                            } else if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Download failed. Try again.'),
+                                ),
+                              );
+                            }
+                          },
+                        ),
                   ),
                   const SizedBox(height: 8),
                   IconButton(
@@ -307,7 +368,7 @@ class _SearchScreenState extends State<SearchScreen> {
       home: Scaffold(
         appBar: AppBar(
           title: const Text(
-            "♥__La9liwa__♥",
+            "♥__Salem__♥",
             style: TextStyle(color: Colors.white),
           ),
           centerTitle: true,
@@ -337,6 +398,34 @@ class _SearchScreenState extends State<SearchScreen> {
         body: Column(
           children: [
             _buildSearchBar(),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.library_music),
+                  ),
+                  tooltip: "My Downloads",
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MusicLibraryScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
