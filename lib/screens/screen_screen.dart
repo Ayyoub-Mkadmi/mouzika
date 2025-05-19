@@ -348,53 +348,9 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // This removes the debug banner
-      theme:
-          _isDarkMode
-              ? ThemeData.dark().copyWith(
-                primaryColor: Colors.deepPurple,
-                primaryColorDark: Colors.deepPurple[800],
-                cardColor: Colors.grey[850],
-                hintColor: Colors.grey[400],
-                scaffoldBackgroundColor: Colors.grey[900],
-              )
-              : ThemeData.light().copyWith(
-                primaryColor: Colors.blue,
-                primaryColorDark: Colors.blue[800],
-                cardColor: Colors.white,
-                hintColor: Colors.grey[600],
-                scaffoldBackgroundColor: Colors.grey[100],
-              ),
+      debugShowCheckedModeBanner: false,
+
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            "♥__Salem__♥",
-            style: TextStyle(color: Colors.white),
-          ),
-          centerTitle: true,
-          elevation: 0,
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Theme.of(context).primaryColor,
-                  Theme.of(context).primaryColorDark,
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(
-                _isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                color: Colors.white,
-              ),
-              onPressed: _toggleDarkMode,
-            ),
-          ],
-        ),
         body: Column(
           children: [
             _buildSearchBar(),
@@ -409,7 +365,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   icon: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      // color: Theme.of(context).primaryColor.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.library_music),
