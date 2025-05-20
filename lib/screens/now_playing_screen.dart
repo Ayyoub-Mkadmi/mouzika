@@ -91,25 +91,27 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     }
 
     return Scaffold(
-      // appBar: AppBar(
-      //   title: const Text('Now Playing'),
-      //   centerTitle: true,
-      //   actions: [
-      //     IconButton(
-      //       icon: const Icon(Icons.playlist_play),
-      //       onPressed: () {
-      //         // Optional: Add playlist view functionality
-      //       },
-      //     ),
-      //   ],
-      // ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Improved song display
-            _buildSongInfo(currentPlaylist[currentIndex]),
+            // ✅ Wrap song info in a StreamBuilder to update on track change
+            StreamBuilder<int?>(
+              stream: _audioPlayer.currentIndexStream,
+              builder: (context, snapshot) {
+                final currentIndex =
+                    snapshot.data ?? _audioPlayer.currentIndex ?? 0;
+                final currentPlaylist = AudioPlayerManager().filePlaylist;
+
+                if (currentPlaylist.isEmpty ||
+                    currentIndex >= currentPlaylist.length) {
+                  return const Text("No song selected");
+                }
+
+                return _buildSongInfo(currentPlaylist[currentIndex]);
+              },
+            ),
             const SizedBox(height: 40),
             _buildPlayerControls(),
             const SizedBox(height: 24),

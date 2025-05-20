@@ -1,9 +1,8 @@
-// music_library_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mouzika/services/audio_player_manager.dart';
 import 'package:path_provider/path_provider.dart';
-import 'now_playing_screen.dart';
+import 'home_navigation.dart'; // Import this to access homeNavKey
 
 class MusicLibraryScreen extends StatefulWidget {
   const MusicLibraryScreen({Key? key}) : super(key: key);
@@ -55,17 +54,8 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> {
         style: const TextStyle(fontWeight: FontWeight.w500),
       ),
       onTap: () async {
-        // Set the playlist with all files and the tapped index
         await AudioPlayerManager().setPlaylist(allFiles, initialIndex: index);
-
-        // Start playing the selected song
         AudioPlayerManager().play();
-
-        // Navigate to NowPlayingScreen
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => NowPlayingScreen()),
-        );
       },
     );
   }
@@ -73,7 +63,6 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(title: const Text('My Downloads'), centerTitle: true),
       body:
           _mp3Files.isEmpty
               ? const Center(

@@ -78,12 +78,6 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
-  void _toggleDarkMode() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-    });
-  }
-
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
