@@ -43,23 +43,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.example.mouzika.channel.audio',
-    androidNotificationChannelName: 'Audio playback',
-    androidNotificationOngoing: true,
-  );
-
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => MusicPlayerProvider()),
-      ],
-      child: const MyApp(),
-    ),
-  );
-}
