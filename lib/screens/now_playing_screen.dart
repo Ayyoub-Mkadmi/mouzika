@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:audio_service/audio_service.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:mouzika/services/audio_player_manager.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -12,28 +12,83 @@ class NowPlayingScreen extends StatefulWidget {
 }
 
 class _NowPlayingScreenState extends State<NowPlayingScreen> {
-  final audioHandler = AudioPlayerManager().audioHandler;
+  final AudioPlayer _audioPlayer = AudioPlayerManager().audioPlayer;
   late Stream<PositionData> _positionDataStream;
+  bool _isInitialized = false;
+  bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
-    _positionDataStream =
-        Rx.combineLatest3<Duration, Duration, MediaItem?, PositionData>(
-          audioHandler.playbackState.map((s) => s.position),
-          audioHandler.playbackState.map((s) => s.bufferedPosition),
-          audioHandler.mediaItem,
-          (position, bufferedPosition, mediaItem) => PositionData(
-            position,
-            bufferedPosition,
-            mediaItem?.duration ?? Duration.zero,
-          ),
-        );
+    _initializePlayer();
+    _setupListeners();
+  }
+
+  Future<void> _initializePlayer() async {
+    try {
+      // Wait for player to be ready
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      setState(() {
+        _positionDataStream =
+            Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
+              _audioPlayer.positionStream,
+              _audioPlayer.bufferedPositionStream,
+              _audioPlayer.durationStream,
+              (position, bufferedPosition, duration) => PositionData(
+                position,
+                bufferedPosition,
+                duration ?? Duration.zero,
+              ),
+            );
+        _isInitialized = true;
+      });
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+      });
+    }
+  }
+
+  void _setupListeners() {
+    _audioPlayer.playbackEventStream.listen(
+      (event) {},
+      onError: (Object e, StackTrace st) {
+        setState(() {
+          _hasError = true;
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    // Don't dispose the audio player here as it's managed by AudioPlayerManager
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final currentPlaylist = AudioPlayerManager().filePlaylist;
+    final currentIndex = _audioPlayer.currentIndex ?? 0;
+
+    if (_hasError) {
+      return Scaffold(
+        // appBar: AppBar(title: const Text('Now Playing')),
+        body: const Center(child: Text("Error playing audio")),
+      );
+    }
+
+    if (!_isInitialized) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (currentPlaylist.isEmpty || currentIndex >= currentPlaylist.length) {
+      return Scaffold(
+        // appBar: AppBar(title: const Text('Now Playing')),
+        body: const Center(child: Text("No song selected")),
+      );
+    }
 
     return Scaffold(
       body: Padding(
@@ -41,12 +96,20 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            StreamBuilder<MediaItem?>(
-              stream: audioHandler.mediaItem,
+            // ✅ Wrap song info in a StreamBuilder to update on track change
+            StreamBuilder<int?>(
+              stream: _audioPlayer.currentIndexStream,
               builder: (context, snapshot) {
-                final mediaItem = snapshot.data;
-                if (mediaItem == null) return const Text("No song selected");
-                return _buildSongInfo(mediaItem);
+                final currentIndex =
+                    snapshot.data ?? _audioPlayer.currentIndex ?? 0;
+                final currentPlaylist = AudioPlayerManager().filePlaylist;
+
+                if (currentPlaylist.isEmpty ||
+                    currentIndex >= currentPlaylist.length) {
+                  return const Text("No song selected");
+                }
+
+                return _buildSongInfo(currentPlaylist[currentIndex]);
               },
             ),
             const SizedBox(height: 40),
@@ -59,13 +122,17 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     );
   }
 
-  Widget _buildSongInfo(MediaItem mediaItem) {
+  Widget _buildSongInfo(File currentSong) {
+    final fileName = currentSong.path.split('/').last;
+    // Remove file extension for cleaner display
+    final songName = fileName.replaceAll(RegExp(r'\.\w+$'), '');
+
     return Column(
       children: [
         const Icon(Icons.music_note, size: 64, color: Colors.blue),
         const SizedBox(height: 16),
         Text(
-          mediaItem.title,
+          songName,
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
           maxLines: 2,
@@ -76,13 +143,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   }
 
   Widget _buildPlayerControls() {
-    return StreamBuilder<PlaybackState>(
-      stream: audioHandler.playbackState,
+    return StreamBuilder<PlayerState>(
+      stream: _audioPlayer.playerStateStream,
       builder: (context, snapshot) {
-        final state = snapshot.data;
-        final playing = state?.playing ?? false;
+        final playerState = snapshot.data;
         final processingState =
-            state?.processingState ?? AudioProcessingState.idle;
+            playerState?.processingState ?? ProcessingState.idle;
+        final playing = playerState?.playing ?? false;
+        final isBuffering = processingState == ProcessingState.buffering;
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -90,10 +158,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
             IconButton(
               iconSize: 42,
               icon: const Icon(Icons.skip_previous),
-              onPressed: audioHandler.skipToPrevious,
+              onPressed:
+                  _audioPlayer.hasPrevious
+                      ? () => _audioPlayer.seekToPrevious()
+                      : null,
             ),
-            if (processingState == AudioProcessingState.buffering ||
-                processingState == AudioProcessingState.loading)
+            if (isBuffering)
               const Padding(
                 padding: EdgeInsets.all(16.0),
                 child: CircularProgressIndicator(),
@@ -102,12 +172,19 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
               IconButton(
                 iconSize: 64,
                 icon: Icon(playing ? Icons.pause_circle : Icons.play_circle),
-                onPressed: playing ? audioHandler.pause : audioHandler.play,
+                onPressed: () {
+                  if (playing) {
+                    _audioPlayer.pause();
+                  } else {
+                    _audioPlayer.play();
+                  }
+                },
               ),
             IconButton(
               iconSize: 42,
               icon: const Icon(Icons.skip_next),
-              onPressed: audioHandler.skipToNext,
+              onPressed:
+                  _audioPlayer.hasNext ? () => _audioPlayer.seekToNext() : null,
             ),
           ],
         );
@@ -127,12 +204,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
           duration: positionData.duration,
           position: positionData.position,
           bufferedPosition: positionData.bufferedPosition,
-          onChanged: audioHandler.seek,
+          onChanged: _audioPlayer.seek,
         );
       },
     );
   }
 }
+
+// PositionData and SeekBar classes remain the same as in your original code
 
 class PositionData {
   final Duration position;
@@ -167,10 +246,10 @@ class _SeekBarState extends State<SeekBar> {
   Widget build(BuildContext context) {
     final sliderValue =
         _dragValue ??
-        widget.position.inMilliseconds.toDouble().clamp(
+        (widget.position.inMilliseconds.toDouble().clamp(
           0,
           widget.duration.inMilliseconds.toDouble(),
-        );
+        ));
 
     return Column(
       children: [

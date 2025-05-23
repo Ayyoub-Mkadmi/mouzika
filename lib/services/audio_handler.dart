@@ -1,4 +1,4 @@
-// File: lib/services/audio_handler.dart
+// lib/services/audio_handler.dart
 
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
@@ -10,7 +10,6 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   MyAudioHandler();
 
-  /// Explicit async initializer to be awaited after construction.
   Future<void> init() async {
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
@@ -24,11 +23,6 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
             if (playing) MediaControl.pause else MediaControl.play,
             MediaControl.skipToNext,
           ],
-          systemActions: const {
-            MediaAction.seek,
-            MediaAction.seekForward,
-            MediaAction.seekBackward,
-          },
           androidCompactActionIndices: const [0, 1, 2],
           processingState:
               const {
@@ -45,6 +39,17 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           queueIndex: _player.currentIndex,
         ),
       );
+
+      final index = _player.currentIndex;
+      if (index != null && index < queue.value.length) {
+        mediaItem.add(queue.value[index]);
+      }
+    });
+
+    _player.currentIndexStream.listen((index) {
+      if (index != null && index < queue.value.length) {
+        mediaItem.add(queue.value[index]);
+      }
     });
   }
 
@@ -92,22 +97,13 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   @override
   Future<void> stop() => _player.stop();
 
-  @override
-  Future<void> addQueueItem(MediaItem item) async {
-    // Optional: implement to support dynamic queue
-  }
-
   AudioPlayer get audioPlayer => _player;
 }
 
 Future<AudioHandler> initAudioHandler() async {
-  print('Starting initAudioHandler...');
   final handler = MyAudioHandler();
-  print('Created MyAudioHandler instance');
   await handler.init();
-  print('Completed MyAudioHandler.init()');
-
-  final audioHandlerInstance = await AudioService.init(
+  return await AudioService.init(
     builder: () => handler,
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.example.mouzika.channel.audio',
@@ -116,7 +112,4 @@ Future<AudioHandler> initAudioHandler() async {
       androidStopForegroundOnPause: true,
     ),
   );
-
-  print('AudioService.init completed');
-  return audioHandlerInstance;
 }
