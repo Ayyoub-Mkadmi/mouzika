@@ -2,4 +2,5 @@ package com.example.mouzika
 
 import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity : FlutterActivity()
+import com.ryanheise.audioservice.AudioServiceActivity
+class MainActivity : AudioServiceActivity()

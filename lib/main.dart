@@ -3,15 +3,24 @@ import 'package:mouzika/providers/music_player_provider.dart';
 import 'package:provider/provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/home_navigation.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.example.mouzika.channel.audio',
+    androidNotificationChannelName: 'Audio Playback',
+    androidNotificationOngoing: true,
+  );
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => MusicPlayerProvider()),
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }

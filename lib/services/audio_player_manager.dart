@@ -1,6 +1,6 @@
-// audio_player_manager.dart
 import 'dart:io';
 import 'package:just_audio/just_audio.dart';
+import 'package:audio_service/audio_service.dart';
 
 class AudioPlayerManager {
   static final AudioPlayerManager _instance = AudioPlayerManager._internal();
@@ -18,10 +18,23 @@ class AudioPlayerManager {
 
   Future<void> setPlaylist(List<File> files, {int initialIndex = 0}) async {
     _filePlaylist = files;
+
     _playlistSource = ConcatenatingAudioSource(
-      children:
-          files.map((file) => AudioSource.uri(Uri.file(file.path))).toList(),
+      children: files.map((file) {
+        final fileName = file.path.split('/').last;
+        return AudioSource.uri(
+          Uri.file(file.path),
+          tag: MediaItem(
+            id: file.path,
+            album: 'Local Files',
+            title: fileName,
+            artist: 'Unknown Artist',
+            artUri: Uri.parse('https://example.com/default_cover.jpg'), // replace or make optional
+          ),
+        );
+      }).toList(),
     );
+
     await _audioPlayer.setAudioSource(
       _playlistSource,
       initialIndex: initialIndex,
