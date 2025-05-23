@@ -20,19 +20,22 @@ class AudioPlayerManager {
     _filePlaylist = files;
 
     _playlistSource = ConcatenatingAudioSource(
-      children: files.map((file) {
-        final fileName = file.path.split('/').last;
-        return AudioSource.uri(
-          Uri.file(file.path),
-          tag: MediaItem(
-            id: file.path,
-            album: 'Local Files',
-            title: fileName,
-            artist: 'Unknown Artist',
-            artUri: Uri.parse('https://example.com/default_cover.jpg'), // replace or make optional
-          ),
-        );
-      }).toList(),
+      children:
+          files.map((file) {
+            final fileName = file.path.split('/').last;
+            return AudioSource.uri(
+              Uri.file(file.path),
+              tag: MediaItem(
+                id: file.path,
+                album: 'Local Files',
+                title: fileName,
+                artist: 'Unknown Artist',
+                artUri: Uri.parse(
+                  'https://example.com/default_cover.jpg',
+                ), // replace or make optional
+              ),
+            );
+          }).toList(),
     );
 
     await _audioPlayer.setAudioSource(
