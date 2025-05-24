@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mouzika/services/audio_player_manager.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import '../models/track.dart';
 
 class NowPlayingScreen extends StatefulWidget {
   const NowPlayingScreen({Key? key}) : super(key: key);
@@ -16,17 +18,17 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   late Stream<PositionData> _positionDataStream;
   bool _isInitialized = false;
   bool _hasError = false;
-
+  late Box<Track> trackBox;
   @override
   void initState() {
     super.initState();
+    trackBox = Hive.box<Track>('tracks');
     _initializePlayer();
     _setupListeners();
   }
 
   Future<void> _initializePlayer() async {
     try {
-      // Wait for player to be ready
       await Future.delayed(const Duration(milliseconds: 50));
 
       setState(() {
@@ -122,25 +124,46 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     );
   }
 
-  Widget _buildSongInfo(File currentSong) {
-    final fileName = currentSong.path.split('/').last;
-    // Remove file extension for cleaner display
-    final songName = fileName.replaceAll(RegExp(r'\.\w+$'), '');
+ Widget _buildSongInfo(File currentSong) {
+  final fileName = currentSong.path.split('/').last;
+  final songName = fileName.replaceAll(RegExp(r'\.\w+$'), '');
 
-    return Column(
-      children: [
+  final track = trackBox.values.firstWhere(
+    (t) => t.mp3Path == currentSong.path,
+    orElse: () => Track(
+      videoId: '',
+      title: songName,
+      mp3Path: currentSong.path,
+      thumbPath: '',
+      duration: '',
+    ),
+  );
+  print('Thumbnail path for current track: ${track.thumbPath}');
+
+  final thumbFile = File(track.thumbPath);
+
+  return Column(
+    children: [
+      if (track.thumbPath.isNotEmpty && thumbFile.existsSync())
+        Image.file(
+          thumbFile,
+          width: 200,
+          height: 200,
+          fit: BoxFit.cover,
+        )
+      else
         const Icon(Icons.music_note, size: 64, color: Colors.blue),
-        const SizedBox(height: 16),
-        Text(
-          songName,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
+      const SizedBox(height: 16),
+      Text(
+        track.title,
+        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ],
+  );
+}
 
   Widget _buildPlayerControls() {
     return StreamBuilder<PlayerState>(

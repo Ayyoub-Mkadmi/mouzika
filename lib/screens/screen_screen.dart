@@ -6,6 +6,7 @@ import '../models/video_result.dart';
 import '../services/api_service.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:mouzika/services/downloader.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
@@ -202,44 +203,32 @@ class _SearchScreenState extends State<SearchScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Builder(
-                    builder:
-                        (context) => IconButton(
-                          icon: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).primaryColor.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.download,
-                              color: Theme.of(context).primaryColor,
+                    builder: (context) => IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).primaryColor.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.download,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                      onPressed: () async {
+                        final ok = await Downloader.downloadAndStore(video);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ok
+                                ? 'Saved "${video.title}" to your library'
+                                : 'Download failed – try again',
                             ),
                           ),
-                          onPressed: () async {
-                            final success = await _downloadAndSaveMp3(
-                              video.videoId, // or video.id
-                              video.title,
-                            );
-
-                            if (success && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Downloaded "${video.title}.mp3" to app storage',
-                                  ),
-                                ),
-                              );
-                            } else if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Download failed. Try again.'),
-                                ),
-                              );
-                            }
-                          },
-                        ),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 8),
                   IconButton(
