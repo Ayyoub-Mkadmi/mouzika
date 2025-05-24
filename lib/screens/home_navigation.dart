@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:mouzika/screens/playlist_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import 'screen_screen.dart';
@@ -19,7 +20,12 @@ class HomeNavigation extends StatefulWidget {
 class _HomeNavigationState extends State<HomeNavigation> {
   int _selectedIndex = 0;
 
-  static const List<String> _titles = ['Search', 'Library', 'Now Playing'];
+  static const List<String> _titles = [
+    'Search',
+    'Library',
+    'Playlists',
+    'Now Playing',
+  ];
 
   // Make this public by removing the underscore
   void goToNowPlaying() {
@@ -32,7 +38,8 @@ class _HomeNavigationState extends State<HomeNavigation> {
 
     final _screens = [
       const SearchScreen(),
-      const MusicLibraryScreen(), // we will update this screen next
+      const MusicLibraryScreen(),
+      const PlaylistScreen(),
       const NowPlayingScreen(),
     ];
 
@@ -54,11 +61,16 @@ class _HomeNavigationState extends State<HomeNavigation> {
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).primaryColor,
         onTap: (index) => setState(() => _selectedIndex = index),
+        type: BottomNavigationBarType.fixed, // Add this to support 4+ items
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
           BottomNavigationBarItem(
             icon: Icon(Icons.library_music),
             label: 'Library',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.queue_music),
+            label: 'Playlists',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.music_note),
