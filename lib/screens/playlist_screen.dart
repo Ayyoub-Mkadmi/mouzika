@@ -47,14 +47,17 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
             title: const Text('Create Playlist'),
             content: TextField(
               controller: nameController,
-              decoration: const InputDecoration(hintText: 'Playlist name'),
+              decoration: const InputDecoration(
+                hintText: 'Playlist name',
+                border: OutlineInputBorder(),
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Cancel'),
               ),
-              TextButton(
+              ElevatedButton(
                 onPressed: () {
                   final name = nameController.text.trim();
                   if (name.isNotEmpty) {
@@ -105,7 +108,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Cancel'),
               ),
-              TextButton(
+              ElevatedButton(
                 onPressed: () {
                   setState(() {
                     _playlists.removeAt(index);
@@ -113,6 +116,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                   _savePlaylists();
                   Navigator.pop(context);
                 },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 child: const Text('Delete'),
               ),
             ],
@@ -122,30 +126,70 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Playlists'),
+        title: const Text('My Playlists'),
         actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _createPlaylist),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _createPlaylist,
+            tooltip: 'Create Playlist',
+          ),
         ],
       ),
       body:
           _playlists.isEmpty
-              ? const Center(child: Text('No playlists found.'))
-              : ListView.builder(
-                itemCount: _playlists.length,
-                itemBuilder: (context, index) {
-                  final playlist = _playlists[index];
-                  return ListTile(
-                    leading: const Icon(Icons.playlist_play),
-                    title: Text(playlist.name),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _deletePlaylist(index),
-                    ),
-                    onTap: () => _navigateToDetail(playlist, index),
-                  );
-                },
+              ? const Center(
+                child: Text(
+                  'No playlists yet.\nTap + to create one!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+              )
+              : Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: ListView.builder(
+                  itemCount: _playlists.length,
+                  itemBuilder: (context, index) {
+                    final playlist = _playlists[index];
+                    return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              isDark ? Colors.grey[800] : Colors.grey[300],
+                          child: const Icon(
+                            Icons.music_note,
+                            color: Colors.white,
+                          ),
+                        ),
+                        title: Text(
+                          playlist.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text('${playlist.songs.length} song(s)'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deletePlaylist(index),
+                        ),
+                        onTap: () => _navigateToDetail(playlist, index),
+                      ),
+                    );
+                  },
+                ),
               ),
     );
   }
