@@ -342,28 +342,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 horizontal: 16.0,
                 vertical: 8.0,
               ),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      // color: Theme.of(context).primaryColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.library_music),
-                  ),
-                  tooltip: "My Downloads",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MusicLibraryScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
             ),
             Expanded(
               child: AnimatedSwitcher(

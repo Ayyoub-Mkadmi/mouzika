@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mouzika/models/track.dart';
 import 'package:mouzika/providers/music_player_provider.dart';
+import 'package:mouzika/providers/theme_provider.dart';
+import 'package:mouzika/screens/home_navigation.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:provider/provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/home_navigation.dart';
@@ -43,6 +46,7 @@ class MyApp extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Mouzika',
       theme: themeProvider.isDarkMode ? ThemeData.dark() : ThemeData.light(),
       home: const HomeNavigation(),
