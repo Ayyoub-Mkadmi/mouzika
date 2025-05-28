@@ -1,3 +1,15 @@
+fun findLatestNdkVersion(): String {
+    val ndkDir = File(System.getenv("ANDROID_SDK_ROOT") ?: System.getenv("ANDROID_HOME") ?: "", "ndk")
+    if (ndkDir.exists()) {
+        return ndkDir.listFiles()
+            ?.filter { it.isDirectory }
+            ?.map { it.name }
+            ?.sortedDescending()
+            ?.firstOrNull() ?: "29.0.13113456" // fallback default
+    }
+    return "29.0.13113456"
+}
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,7 +20,7 @@ plugins {
 android {
     namespace = "com.example.mouzika"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = findLatestNdkVersion()
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
