@@ -2,8 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mouzika/services/audio_player_manager.dart';
 import 'package:rxdart/rxdart.dart';
@@ -18,16 +16,11 @@ class NowPlayingScreen extends StatefulWidget {
 }
 
 class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerProviderStateMixin {
-class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayerManager().audioPlayer;
   late Stream<PositionData> _positionDataStream;
   bool _isInitialized = false;
   bool _hasError = false;
   late Box<Track> trackBox;
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-  
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
@@ -38,27 +31,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerPr
     trackBox = Hive.box<Track>('tracks');
     _initializePlayer();
     _setupListeners();
-    
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-      ),
-    );
-    
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 0.8, curve: Curves.easeOutCubic),
-      ),
-    );
-    
-    _animationController.forward();
     
     _animationController = AnimationController(
       vsync: this,
@@ -121,7 +93,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerPr
   @override
   void dispose() {
     _animationController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -130,20 +101,16 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerPr
     final currentPlaylist = AudioPlayerManager().filePlaylist;
     final currentIndex = _audioPlayer.currentIndex ?? 0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_hasError) {
-      return _buildErrorState(isDark);
       return _buildErrorState(isDark);
     }
 
     if (!_isInitialized) {
       return _buildLoadingState(isDark);
-      return _buildLoadingState(isDark);
     }
 
     if (currentPlaylist.isEmpty || currentIndex >= currentPlaylist.length) {
-      return _buildEmptyState(isDark);
       return _buildEmptyState(isDark);
     }
 
@@ -325,134 +292,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerPr
   Widget _buildSongInfo(File currentSong, bool isDark) {
     final fileName = currentSong.path.split('/').last;
     final songName = fileName.replaceAll(RegExp(r'\.\w+$'), '').replaceAll('_', ' ');
-  Widget _buildHeader(bool isDark) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          "Now Playing",
-          style: GoogleFonts.poppins(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.playlist_play,
-            color: isDark ? Colors.white70 : Colors.black54,
-            size: 28,
-          ),
-          onPressed: () {
-            // Show playlist
-            _showCurrentPlaylist(isDark);
-          },
-        ),
-      ],
-    );
-  }
 
-  void _showCurrentPlaylist(bool isDark) {
-    final currentPlaylist = AudioPlayerManager().filePlaylist;
-    final currentIndex = _audioPlayer.currentIndex ?? 0;
-    
-    if (currentPlaylist.isEmpty) return;
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: isDark ? Colors.grey[850] : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text(
-                'Current Playlist',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: currentPlaylist.length,
-                physics: const BouncingScrollPhysics(),
-                itemBuilder: (context, index) {
-                  final file = currentPlaylist[index];
-                  final fileName = file.path.split('/').last;
-                  final songName = fileName.replaceAll(RegExp(r'\.\w+$'), '').replaceAll('_', ' ');
-                  
-                  final isPlaying = index == currentIndex;
-                  
-                  return ListTile(
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isPlaying
-                            ? [Theme.of(context).primaryColor.withOpacity(0.7), Theme.of(context).primaryColor]
-                            : [isDark ? Colors.grey[700]! : Colors.grey[300]!, isDark ? Colors.grey[600]! : Colors.grey[400]!],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        isPlaying ? Icons.play_arrow : Icons.music_note,
-                        color: isPlaying ? Colors.white : isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                    title: Text(
-                      songName,
-                      style: GoogleFonts.poppins(
-                        fontWeight: isPlaying ? FontWeight.w600 : FontWeight.w400,
-                        color: isPlaying 
-                          ? Theme.of(context).primaryColor 
-                          : isDark ? Colors.white : Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () {
-                      _audioPlayer.seek(Duration.zero, index: index);
-                      if (!_audioPlayer.playing) {
-                        _audioPlayer.play();
-                      }
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildSongInfo(File currentSong, bool isDark) {
-    final fileName = currentSong.path.split('/').last;
-    final songName = fileName.replaceAll(RegExp(r'\.\w+$'), '').replaceAll('_', ' ');
-
-    final track = trackBox.values.firstWhere(
-      (t) => t.mp3Path == currentSong.path,
-      orElse: () => Track(
-        videoId: '',
-        title: songName,
-        mp3Path: currentSong.path,
-        thumbPath: '',
-        duration: '',
-      ),
-    );
     final track = trackBox.values.firstWhere(
       (t) => t.mp3Path == currentSong.path,
       orElse: () => Track(
@@ -570,12 +410,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerPr
   }
 
   Widget _buildPlayerControls(bool isDark) {
-  Widget _buildPlayerControls(bool isDark) {
     return StreamBuilder<PlayerState>(
       stream: _audioPlayer.playerStateStream,
       builder: (context, snapshot) {
         final playerState = snapshot.data;
-        final processingState = playerState?.processingState ?? ProcessingState.idle;
         final processingState = playerState?.processingState ?? ProcessingState.idle;
         final playing = playerState?.playing ?? false;
         final isBuffering = processingState == ProcessingState.buffering;
@@ -862,7 +700,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerPr
       stream: _positionDataStream,
       builder: (context, snapshot) {
         final positionData = snapshot.data ??
-        final positionData = snapshot.data ??
             PositionData(Duration.zero, Duration.zero, Duration.zero);
 
         return SeekBar(
@@ -1109,194 +946,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> with SingleTickerPr
   }
 }
 
-  Widget _buildErrorState(bool isDark) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.red[900]!.withOpacity(0.2)
-                    : Colors.red[50],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.error_outline_rounded,
-                color: isDark ? Colors.red[300] : Colors.red[400],
-                size: 48,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              "Playback Error",
-              style: GoogleFonts.poppins(
-                color: isDark ? Colors.white : Colors.grey[800],
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                "There was an error playing this audio file. Please try again.",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  fontSize: 15,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                setState(() {
-                  _hasError = false;
-                  _isInitialized = false;
-                });
-                _initializePlayer();
-              },
-              icon: const Icon(Icons.refresh),
-              label: Text(
-                "Try Again",
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 16,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingState(bool isDark) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.grey[800]!.withOpacity(0.3)
-                    : Colors.grey[100],
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: CircularProgressIndicator(
-                color: Theme.of(context).primaryColor,
-                strokeWidth: 3,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              "Loading player...",
-              style: GoogleFonts.poppins(
-                color: isDark ? Colors.grey[300] : Colors.grey[700],
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(bool isDark) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.grey[800]!.withOpacity(0.3)
-                    : Colors.grey[200]!.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.music_off,
-                color: Theme.of(context).primaryColor.withOpacity(0.7),
-                size: 60,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              "No Music Playing",
-              style: GoogleFonts.poppins(
-                color: isDark ? Colors.white : Colors.grey[800],
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                "Select a song from your library or playlists to start listening",
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  fontSize: 15,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                // Navigate to library or search
-              },
-              icon: const Icon(Icons.library_music),
-              label: Text(
-                "Browse Library",
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 16,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class PositionData {
   final Duration position;
   final Duration bufferedPosition;
@@ -1312,16 +961,12 @@ class SeekBar extends StatefulWidget {
   final ValueChanged<Duration>? onChanged;
   final bool isDark;
   final Color primaryColor;
-  final bool isDark;
-  final Color primaryColor;
 
   const SeekBar({
     Key? key,
     required this.duration,
     required this.position,
     required this.bufferedPosition,
-    required this.isDark,
-    required this.primaryColor,
     required this.isDark,
     required this.primaryColor,
     this.onChanged,
@@ -1340,10 +985,6 @@ class _SeekBarState extends State<SeekBar> {
       0,
       widget.duration.inMilliseconds.toDouble() == 0 ? 1 : widget.duration.inMilliseconds.toDouble(),
     ));
-    final sliderValue = _dragValue ?? (widget.position.inMilliseconds.toDouble().clamp(
-      0,
-      widget.duration.inMilliseconds.toDouble() == 0 ? 1 : widget.duration.inMilliseconds.toDouble(),
-    ));
 
     return Column(
       children: [
@@ -1356,14 +997,9 @@ class _SeekBarState extends State<SeekBar> {
             inactiveTrackColor: widget.isDark ? Colors.grey[700] : Colors.grey[300],
             thumbColor: widget.primaryColor,
             overlayColor: widget.primaryColor.withAlpha(32),
-            activeTrackColor: widget.primaryColor,
-            inactiveTrackColor: widget.isDark ? Colors.grey[700] : Colors.grey[300],
-            thumbColor: widget.primaryColor,
-            overlayColor: widget.primaryColor.withAlpha(32),
           ),
           child: Slider(
             min: 0,
-            max: widget.duration.inMilliseconds.toDouble() == 0 ? 1 : widget.duration.inMilliseconds.toDouble(),
             max: widget.duration.inMilliseconds.toDouble() == 0 ? 1 : widget.duration.inMilliseconds.toDouble(),
             value: sliderValue,
             onChanged: (value) {
@@ -1380,20 +1016,6 @@ class _SeekBarState extends State<SeekBar> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _formatDuration(widget.position),
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: widget.isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-              ),
-              Text(
-                _formatDuration(widget.duration),
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: widget.isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-              ),
               Text(
                 _formatDuration(widget.position),
                 style: GoogleFonts.poppins(
