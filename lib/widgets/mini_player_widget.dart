@@ -4,41 +4,53 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:mouzika/models/track.dart';
 import 'package:mouzika/services/audio_player_manager.dart';
-import 'package:provider/provider.dart';
 import 'package:hive/hive.dart';
+import 'package:audio_service/audio_service.dart';
 
-class MiniPlayerWidget extends StatelessWidget {
+class MiniPlayerWidget extends StatefulWidget {
   final VoidCallback? onTap;
 
   const MiniPlayerWidget({Key? key, this.onTap}) : super(key: key);
 
   @override
+  State<MiniPlayerWidget> createState() => _MiniPlayerWidgetState();
+}
+
+class _MiniPlayerWidgetState extends State<MiniPlayerWidget> {
+  final AudioPlayer _audioPlayer = AudioPlayerManager().audioPlayer;
+
+  @override
   Widget build(BuildContext context) {
-    final audioPlayer = AudioPlayerManager().audioPlayer;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).primaryColor;
     final trackBox = Hive.box<Track>('tracks');
 
     return StreamBuilder<SequenceState?>(
-      stream: audioPlayer.sequenceStateStream,
+      stream: _audioPlayer.sequenceStateStream,
       builder: (context, sequenceSnapshot) {
         final sequenceState = sequenceSnapshot.data;
         final currentSource = sequenceState?.currentSource;
         Track? currentTrack;
+        String? mp3Path;
 
-        if (currentSource != null && currentSource.tag is String) {
-          // Assuming tag is the mp3Path
-          final mp3Path = currentSource.tag as String;
+        if (currentSource?.tag != null) {
+          if (currentSource!.tag is MediaItem) {
+            mp3Path = (currentSource.tag as MediaItem).id;
+          } else if (currentSource.tag is String) {
+            mp3Path = currentSource.tag as String;
+          }
+        }
+
+        if (mp3Path != null) {
           currentTrack = trackBox.values.firstWhere(
             (t) => t.mp3Path == mp3Path,
             orElse: () {
-              // Fallback if track not found in Hive (e.g., directly played file)
-              final fileName = mp3Path.split('/').last;
+              final fileName = mp3Path!.split('/').last;
               final songName = fileName.replaceAll(RegExp(r'\.\w+$'), '').replaceAll('_', ' ');
               return Track(
-                videoId: '', // Or extract if possible
+                videoId: '',
                 title: songName,
-                mp3Path: mp3Path,
+                mp3Path: mp3Path!,
                 thumbPath: '',
                 duration: '',
               );
@@ -47,27 +59,25 @@ class MiniPlayerWidget extends StatelessWidget {
         }
 
         if (currentTrack == null) {
-          // Return an empty container or placeholder if no track is playing
-          return const SizedBox.shrink(); 
+          return const SizedBox.shrink();
         }
 
         final thumbFile = File(currentTrack.thumbPath);
         final hasThumb = currentTrack.thumbPath.isNotEmpty && thumbFile.existsSync();
 
         return GestureDetector(
-          onTap: onTap,
+          onTap: widget.onTap,
           child: Container(
-            height: 65, // Mini-player height
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            height: 65,
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
             decoration: BoxDecoration(
               color: isDark ? Colors.grey[850] : Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.5,
                 ),
-              ],
+              ),
             ),
             child: Row(
               children: [
@@ -109,7 +119,7 @@ class MiniPlayerWidget extends StatelessWidget {
                 const SizedBox(width: 12),
                 // Play/Pause Button
                 StreamBuilder<PlayerState>(
-                  stream: audioPlayer.playerStateStream,
+                  stream: _audioPlayer.playerStateStream,
                   builder: (context, playerStateSnapshot) {
                     final playerState = playerStateSnapshot.data;
                     final processingState =
@@ -136,9 +146,9 @@ class MiniPlayerWidget extends StatelessWidget {
                             ),
                       onPressed: () {
                         if (playing) {
-                          audioPlayer.pause();
+                          _audioPlayer.pause();
                         } else {
-                          audioPlayer.play();
+                          _audioPlayer.play();
                         }
                       },
                     );
@@ -152,3 +162,4 @@ class MiniPlayerWidget extends StatelessWidget {
     );
   }
 }
+

@@ -50,6 +50,7 @@ dependencies:
   sliding_up_panel: ^2.0.0+1 # Added for mini-player
   flutter_staggered_animations: ^1.1.1
   google_fonts: ^5.1.0
+  rxdart: ^0.27.0
 
 dev_dependencies:
   flutter_test:
