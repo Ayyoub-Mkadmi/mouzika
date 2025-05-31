@@ -17,7 +17,7 @@ class RecentlyPlayedSection extends StatelessWidget {
 
   Widget _buildSectionTitle(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
       child: Row(
@@ -26,7 +26,12 @@ class RecentlyPlayedSection extends StatelessWidget {
             width: 4,
             height: 24,
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
+              color:
+                  isDark
+                      ? Colors.white
+                      : Theme.of(
+                        context,
+                      ).primaryColor, // White in dark, purple in light
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -46,7 +51,7 @@ class RecentlyPlayedSection extends StatelessWidget {
 
   Widget _buildThumbnailWidget(Track track, BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     if (track.thumbPath.isNotEmpty) {
       final thumbFile = File(track.thumbPath);
       if (thumbFile.existsSync()) {
@@ -67,16 +72,13 @@ class RecentlyPlayedSection extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.file(
-                thumbFile,
-                fit: BoxFit.cover,
-              ),
+              child: Image.file(thumbFile, fit: BoxFit.cover),
             ),
           ),
         );
       }
     }
-    
+
     return Container(
       width: 120,
       height: 120,
@@ -102,7 +104,7 @@ class RecentlyPlayedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tracks.isEmpty) return const SizedBox.shrink();
-    
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
@@ -119,7 +121,7 @@ class RecentlyPlayedSection extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
               itemBuilder: (context, index) {
                 final track = tracks[index];
-                
+
                 return AnimationConfiguration.staggeredList(
                   position: index,
                   duration: const Duration(milliseconds: 375),
@@ -130,11 +132,15 @@ class RecentlyPlayedSection extends StatelessWidget {
                         padding: const EdgeInsets.only(right: 16),
                         child: InkWell(
                           onTap: () async {
-                            final playlist = tracks
-                                .where((t) => File(t.mp3Path).existsSync())
-                                .map((t) => File(t.mp3Path))
-                                .toList();
-                            await AudioPlayerManager().setPlaylist(playlist, initialIndex: index);
+                            final playlist =
+                                tracks
+                                    .where((t) => File(t.mp3Path).existsSync())
+                                    .map((t) => File(t.mp3Path))
+                                    .toList();
+                            await AudioPlayerManager().setPlaylist(
+                              playlist,
+                              initialIndex: index,
+                            );
                             AudioPlayerManager().play();
                             onRefreshTracks();
                           },
@@ -153,7 +159,8 @@ class RecentlyPlayedSection extends StatelessWidget {
                                   style: GoogleFonts.poppins(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
-                                    color: isDark ? Colors.white : Colors.black87,
+                                    color:
+                                        isDark ? Colors.white : Colors.black87,
                                   ),
                                 ),
                               ),

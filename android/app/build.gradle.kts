@@ -5,9 +5,9 @@ fun findLatestNdkVersion(): String {
             ?.filter { it.isDirectory }
             ?.map { it.name }
             ?.sortedDescending()
-            ?.firstOrNull() ?: "29.0.13113456" // fallback default
+            ?.firstOrNull() ?: "27.0.12077973" // fallback default
     }
-    return "29.0.13113456"
+    return "27.0.12077973"
 }
 
 plugins {

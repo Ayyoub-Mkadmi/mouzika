@@ -20,7 +20,7 @@ class PlaylistsSection extends StatelessWidget {
 
   Widget _buildSectionTitle(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
       child: Row(
@@ -29,7 +29,12 @@ class PlaylistsSection extends StatelessWidget {
             width: 4,
             height: 24,
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
+              color:
+                  isDark
+                      ? Colors.white
+                      : Theme.of(
+                        context,
+                      ).primaryColor, // White in dark, purple in light
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -49,19 +54,20 @@ class PlaylistsSection extends StatelessWidget {
 
   Widget _buildPlaylistThumbnail(Playlist playlist, BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Get first valid track in playlist for thumbnail
     if (playlist.songs.isNotEmpty) {
       for (final songPath in playlist.songs) {
         final track = tracks.firstWhere(
           (t) => t.mp3Path == songPath,
-          orElse: () => Track(
-            videoId: '',
-            title: '',
-            mp3Path: '',
-            thumbPath: '',
-            duration: '',
-          ),
+          orElse:
+              () => Track(
+                videoId: '',
+                title: '',
+                mp3Path: '',
+                thumbPath: '',
+                duration: '',
+              ),
         );
 
         if (track.thumbPath.isNotEmpty) {
@@ -101,34 +107,41 @@ class PlaylistsSection extends StatelessWidget {
       height: 120,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Theme.of(context).primaryColor.withOpacity(0.7),
-            Theme.of(context).primaryColor,
-          ],
+          colors:
+              isDark
+                  ? [
+                    Colors.grey[700]!,
+                    Colors.grey[800]!,
+                  ] // Grey gradient in dark mode
+                  : [
+                    Theme.of(context).primaryColor.withOpacity(0.7),
+                    Theme.of(context).primaryColor,
+                  ], // Purple gradient in light mode
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            color:
+                isDark
+                    ? Colors.grey[700]!.withOpacity(0.3)
+                    : Theme.of(context).primaryColor.withOpacity(
+                      0.3,
+                    ), // Adjusted shadow for dark mode
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: const Icon(
-        Icons.playlist_play,
-        size: 50,
-        color: Colors.white,
-      ),
+      child: const Icon(Icons.playlist_play, size: 50, color: Colors.white),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     if (playlists.isEmpty) return const SizedBox.shrink();
-    
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
@@ -145,7 +158,7 @@ class PlaylistsSection extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
               itemBuilder: (context, index) {
                 final playlist = playlists[index];
-                
+
                 return AnimationConfiguration.staggeredList(
                   position: index,
                   duration: const Duration(milliseconds: 375),
@@ -159,12 +172,13 @@ class PlaylistsSection extends StatelessWidget {
                             await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => PlaylistDetailScreen(
-                                  playlist: playlist,
-                                  onPlaylistUpdated: (updated) {
-                                    // Handle playlist update if needed
-                                  },
-                                ),
+                                builder:
+                                    (context) => PlaylistDetailScreen(
+                                      playlist: playlist,
+                                      onPlaylistUpdated: (updated) {
+                                        // Handle playlist update if needed
+                                      },
+                                    ),
                               ),
                             );
                             onRefreshPlaylists();
@@ -187,14 +201,20 @@ class PlaylistsSection extends StatelessWidget {
                                       style: GoogleFonts.poppins(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
-                                        color: isDark ? Colors.white : Colors.black87,
+                                        color:
+                                            isDark
+                                                ? Colors.white
+                                                : Colors.black87,
                                       ),
                                     ),
                                     Text(
                                       '${playlist.songs.length} song${playlist.songs.length != 1 ? 's' : ''}',
                                       style: GoogleFonts.poppins(
                                         fontSize: 12,
-                                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                        color:
+                                            isDark
+                                                ? Colors.grey[400]
+                                                : Colors.grey[600],
                                       ),
                                     ),
                                   ],

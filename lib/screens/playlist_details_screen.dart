@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart'; // Import Hive
+import 'package:mouzika/models/track.dart'; // Import Track model
 import 'package:mouzika/screens/song_picker_screen.dart';
 import 'package:mouzika/services/audio_player_manager.dart';
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart'; // Import Provider
+import '../providers/theme_provider.dart'; // Import ThemeProvider
 import '../models/playlist.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -22,27 +26,62 @@ class PlaylistDetailScreen extends StatefulWidget {
   State<PlaylistDetailScreen> createState() => _PlaylistDetailScreenState();
 }
 
-class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with SingleTickerProviderStateMixin {
+class _PlaylistDetailScreenState extends State<PlaylistDetailScreen>
+    with SingleTickerProviderStateMixin {
   late Playlist _playlist;
-  bool _isLoading = false;
+  bool _isLoading = true; // Start loading to filter playlist initially
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Box<Track> _trackBox; // Hive box for tracks
 
   @override
   void initState() {
     super.initState();
-    _playlist = widget.playlist;
+    _playlist = widget.playlist; // Initial assignment
+    _trackBox = Hive.box<Track>('tracks'); // Open track box
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-    _animationController.forward();
+    // Call async initialization
+    _initializeAndFilterPlaylist();
+  }
+
+  Future<void> _initializeAndFilterPlaylist() async {
+    await _filterPlaylistSongs(); // Filter songs based on file existence
+    if (mounted) {
+      setState(() {
+        _isLoading = false; // Stop loading after filtering
+      });
+      _animationController.forward(); // Start animation after loading
+    }
+  }
+
+  // New function to filter playlist songs based on file existence
+  Future<void> _filterPlaylistSongs() async {
+    final originalPaths = List<String>.from(_playlist.songs);
+    final validSongPaths = <String>[];
+    bool changed = false;
+
+    for (final path in originalPaths) {
+      final file = File(path);
+      if (await file.exists()) {
+        validSongPaths.add(path);
+      } else {
+        changed = true; // Mark that a change occurred
+      }
+    }
+
+    // If any songs were removed because the file didn't exist
+    if (changed && mounted) {
+      setState(() {
+        _playlist.songs = validSongPaths;
+      });
+      widget.onPlaylistUpdated(_playlist); // Persist the filtered list
+    }
   }
 
   @override
@@ -51,47 +90,100 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with Single
     super.dispose();
   }
 
-  void _removeSong(int index) {
-    setState(() {
-      _playlist.songs.removeAt(index);
-    });
-    widget.onPlaylistUpdated(_playlist);
-    
-    // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Song removed from playlist',
-          style: GoogleFonts.poppins(),
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.red[700],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
+  // Updated function to delete song from library
+  Future<void> _removeSong(int index) async {
+    if (index < 0 || index >= _playlist.songs.length) return; // Bounds check
+
+    final path = _playlist.songs[index];
+    final trackKey = _trackBox.keys.firstWhere(
+      (key) => _trackBox.get(key)?.mp3Path == path,
+      orElse: () => null,
     );
+    final track = trackKey != null ? _trackBox.get(trackKey) : null;
+
+    // 1. Delete MP3 file
+    try {
+      final mp3File = File(path);
+      if (await mp3File.exists()) {
+        await mp3File.delete();
+      }
+    } catch (e) {
+      print("Error deleting MP3 file: $e");
+      // Optionally show an error message to the user
+    }
+
+    // 2. Delete Thumbnail file
+    if (track != null && track.thumbPath.isNotEmpty) {
+      try {
+        final thumbFile = File(track.thumbPath);
+        if (await thumbFile.exists()) {
+          await thumbFile.delete();
+        }
+      } catch (e) {
+        print("Error deleting thumbnail file: $e");
+      }
+    }
+
+    // 3. Remove from Hive
+    if (trackKey != null) {
+      try {
+        await _trackBox.delete(trackKey);
+      } catch (e) {
+        print("Error deleting track from Hive: $e");
+      }
+    }
+
+    // 4. Update playlist state
+    if (mounted) {
+      setState(() {
+        // Ensure index is still valid after potential async gaps
+        if (index < _playlist.songs.length && _playlist.songs[index] == path) {
+          _playlist.songs.removeAt(index);
+        }
+      });
+      widget.onPlaylistUpdated(_playlist); // Notify parent
+    }
+
+    // 5. Show confirmation
+    if (mounted) {
+      // Check if the widget is still in the tree
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Song deleted from library',
+            style: GoogleFonts.poppins(),
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red[700],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _addSongs() async {
-    setState(() {
-      _isLoading = true;
-    });
-    
+    // No need to set _isLoading here, handled by Navigator push
     final selected = await Navigator.push<List<String>>(
       context,
       MaterialPageRoute(builder: (_) => const SongPickerScreen()),
     );
 
     if (selected != null && selected.isNotEmpty) {
+      bool addedNew = false;
       setState(() {
-        _playlist.songs.addAll(
-          selected.where((path) => !_playlist.songs.contains(path)),
-        );
-        _isLoading = false;
+        for (var path in selected) {
+          if (!_playlist.songs.contains(path)) {
+            _playlist.songs.add(path);
+            addedNew = true;
+          }
+        }
       });
-      widget.onPlaylistUpdated(_playlist);
-      
+      if (addedNew) {
+        widget.onPlaylistUpdated(_playlist);
+      }
+
       // Show confirmation
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -106,42 +198,96 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with Single
           ),
         ),
       );
-    } else {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
   void _playSong(int index) {
+    if (index < 0 || index >= _playlist.songs.length) return; // Bounds check
     HapticFeedback.lightImpact();
-    final files = _playlist.songs.map((path) => File(path)).toList();
-    AudioPlayerManager().setPlaylist(files, initialIndex: index);
-    AudioPlayerManager().play();
+    // Filter list again just before playing to ensure files exist
+    final playableFiles =
+        _playlist.songs
+            .map((path) => File(path))
+            .where((file) => file.existsSync())
+            .toList();
+
+    // Find the new index in the filtered list
+    final currentPath = _playlist.songs[index];
+    final playableIndex = playableFiles.indexWhere(
+      (file) => file.path == currentPath,
+    );
+
+    if (playableIndex != -1) {
+      AudioPlayerManager().setPlaylist(
+        playableFiles,
+        initialIndex: playableIndex,
+      );
+      AudioPlayerManager().play();
+    } else {
+      // Handle case where the selected song file was deleted just before playing
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Song file not found.', style: GoogleFonts.poppins()),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.orange[700],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+      // Optionally refresh the list here
+      _filterPlaylistSongs();
+    }
   }
 
   void _playAll() {
     if (_playlist.songs.isEmpty) return;
-    
     HapticFeedback.mediumImpact();
-    final files = _playlist.songs.map((path) => File(path)).toList();
-    AudioPlayerManager().setPlaylist(files, initialIndex: 0);
-    AudioPlayerManager().play();
+    // Filter list again just before playing to ensure files exist
+    final playableFiles =
+        _playlist.songs
+            .map((path) => File(path))
+            .where((file) => file.existsSync())
+            .toList();
+
+    if (playableFiles.isNotEmpty) {
+      AudioPlayerManager().setPlaylist(playableFiles, initialIndex: 0);
+      AudioPlayerManager().play();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No playable songs found in playlist.',
+            style: GoogleFonts.poppins(),
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.orange[700],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+      // Optionally refresh the list here
+      _filterPlaylistSongs();
+    }
   }
 
   String _formatFileName(String fileName) {
     // Remove .mp3 extension
     String name = fileName.replaceAll('.mp3', '');
-    
+
     // Replace underscores with spaces
     name = name.replaceAll('_', ' ');
-    
+
     return name;
   }
 
-  Widget _buildEmptyState() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+  Widget _buildEmptyState(BuildContext context) {
+    // Pass context
+    final isDark =
+        Provider.of<ThemeProvider>(context).isDarkMode; // Use ThemeProvider
+    final primaryColor = Theme.of(context).primaryColor;
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Center(
@@ -152,14 +298,15 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with Single
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.grey[800]!.withOpacity(0.3)
-                    : Colors.grey[200]!.withOpacity(0.5),
+                color:
+                    isDark
+                        ? Colors.grey[800]!.withOpacity(0.3)
+                        : Colors.grey[200]!.withOpacity(0.5),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.music_off,
-                color: Theme.of(context).primaryColor.withOpacity(0.7),
+                color: primaryColor.withOpacity(0.7), // Use primaryColor
                 size: 60,
               ),
             ),
@@ -200,7 +347,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with Single
                   horizontal: 24,
                   vertical: 12,
                 ),
-                backgroundColor: Theme.of(context).primaryColor,
+                backgroundColor: primaryColor, // Use primaryColor
                 foregroundColor: Colors.white,
                 elevation: 4,
                 shape: RoundedRectangleBorder(
@@ -213,10 +360,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with Single
       ),
     );
   }
-  
-  Widget _buildLoadingState() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
+  Widget _buildLoadingState(BuildContext context) {
+    // Pass context
+    final isDark =
+        Provider.of<ThemeProvider>(context).isDarkMode; // Use ThemeProvider
+    final primaryColor = Theme.of(context).primaryColor;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -226,19 +376,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with Single
             height: 80,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.grey[800]!.withOpacity(0.3)
-                  : Colors.grey[100],
+              color:
+                  isDark
+                      ? Colors.grey[800]!.withOpacity(0.3)
+                      : Colors.grey[100],
               borderRadius: BorderRadius.circular(20),
             ),
             child: CircularProgressIndicator(
-              color: Theme.of(context).primaryColor,
+              color: primaryColor, // Use primaryColor
               strokeWidth: 3,
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            "Loading songs...",
+            "Loading playlist...", // Updated text
             style: GoogleFonts.poppins(
               color: isDark ? Colors.grey[300] : Colors.grey[700],
               fontSize: 16,
@@ -250,7 +401,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with Single
     );
   }
 
-  Widget _buildFallbackIcon(bool isDark) {
+  Widget _buildFallbackIcon(BuildContext context) {
+    // Pass context
+    final isDark =
+        Provider.of<ThemeProvider>(context).isDarkMode; // Use ThemeProvider
+
     return Container(
       color: isDark ? Colors.grey[800] : Colors.grey[300],
       child: Center(
@@ -265,220 +420,226 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> with Single
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Get theme info from Provider
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final primaryColor = Theme.of(context).primaryColor;
+    final scaffoldBackgroundColor = Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
+      backgroundColor: scaffoldBackgroundColor, // Use theme background
       appBar: AppBar(
+        backgroundColor: scaffoldBackgroundColor, // Use theme background
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
         title: Text(
           _playlist.name,
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : Colors.black87, // Adjust title color
           ),
+        ),
+        iconTheme: IconThemeData(
+          color: isDark ? Colors.white : Colors.black87, // Adjust icon color
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: Icon(
+              Icons.add,
+              color: isDark ? Colors.white : primaryColor,
+            ), // Use primaryColor in light mode
             onPressed: _addSongs,
             tooltip: 'Add Songs',
           ),
         ],
       ),
-      floatingActionButton: _playlist.songs.isNotEmpty ? FloatingActionButton(
-        onPressed: _playAll,
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.play_arrow, color: Colors.white),
-      ) : null,
-      body: _isLoading 
-          ? _buildLoadingState()
-          : _playlist.songs.isEmpty
-              ? _buildEmptyState()
+      floatingActionButton:
+          _playlist.songs.isNotEmpty
+              ? FloatingActionButton(
+                onPressed: _playAll,
+                backgroundColor: primaryColor, // Use primaryColor
+                child: const Icon(Icons.play_arrow, color: Colors.white),
+              )
+              : null,
+      body:
+          _isLoading
+              ? _buildLoadingState(context)
+              : _playlist.songs.isEmpty
+              ? _buildEmptyState(context)
               : AnimationLimiter(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 80),
-                    itemCount: _playlist.songs.length,
-                    physics: const BouncingScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      final path = _playlist.songs[index];
-                      final fileName = p.basename(path);
-                      final formattedName = _formatFileName(fileName);
-                      
-                      // Try to find thumbnail path by replacing mp3 with jpg in the path
-                      final String potentialThumbPath = path.replaceAll('/mp3s/', '/thumbnails/').replaceAll('.mp3', '.jpg');
-                      final bool hasThumb = File(potentialThumbPath).existsSync();
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 80),
+                  itemCount: _playlist.songs.length,
+                  physics: const BouncingScrollPhysics(),
+                  itemBuilder: (context, index) {
+                    if (index >= _playlist.songs.length)
+                      return const SizedBox.shrink(); // Safety check
+                    final path = _playlist.songs[index];
+                    final fileName = p.basename(path);
+                    final formattedName = _formatFileName(fileName);
 
-                      return AnimationConfiguration.staggeredList(
-                        position: index,
-                        duration: const Duration(milliseconds: 450),
-                        child: SlideAnimation(
-                          verticalOffset: 50.0,
-                          child: FadeInAnimation(
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: isDark
-                                      ? [Colors.grey[850]!, Colors.grey[800]!]
-                                      : [Colors.white, Colors.grey[50]!],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: isDark
-                                        ? Colors.black.withOpacity(0.3)
-                                        : Colors.grey.withOpacity(0.2),
-                                    spreadRadius: 1,
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
+                    // Try to find thumbnail path by replacing mp3 with jpg in the path
+                    final String potentialThumbPath = path
+                        .replaceAll('/mp3s/', '/thumbnails/')
+                        .replaceAll('.mp3', '.jpg');
+                    final bool hasThumb = File(potentialThumbPath).existsSync();
+
+                    return AnimationConfiguration.staggeredList(
+                      position: index,
+                      duration: const Duration(milliseconds: 450),
+                      child: SlideAnimation(
+                        verticalOffset: 50.0,
+                        child: FadeInAnimation(
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors:
+                                    isDark
+                                        ? [Colors.grey[850]!, Colors.grey[800]!]
+                                        : [Colors.white, Colors.grey[50]!],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () => _playSong(index),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 60,
-                                          height: 60,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(12),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.2),
-                                                spreadRadius: 1,
-                                                blurRadius: 4,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      isDark
+                                          ? Colors.black.withOpacity(0.3)
+                                          : Colors.grey.withOpacity(0.2),
+                                  spreadRadius: 1,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () => _playSong(index),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 60,
+                                        height: 60,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(12),
-                                            child: hasThumb
-                                                ? Image.file(
-                                                    File(potentialThumbPath),
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(isDark),
-                                                  )
-                                                : _buildFallbackIcon(isDark),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                formattedName,
-                                                style: GoogleFonts.poppins(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 15,
-                                                  color: isDark ? Colors.white : Colors.black87,
-                                                ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.2,
                                               ),
-                                              const SizedBox(height: 4),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.music_note,
-                                                    size: 14,
-                                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    "Track ${index + 1}",
-                                                    style: GoogleFonts.poppins(
-                                                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w400,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [
-                                                    Colors.green.withOpacity(0.8),
-                                                    Colors.green,
-                                                  ],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                ),
-                                                borderRadius: BorderRadius.circular(12),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.green.withOpacity(0.3),
-                                                    spreadRadius: 1,
-                                                    blurRadius: 4,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  onTap: () => _playSong(index),
-                                                  child: const Padding(
-                                                    padding: EdgeInsets.all(8.0),
-                                                    child: Icon(
-                                                      Icons.play_arrow_rounded,
-                                                      color: Colors.white,
-                                                      size: 22,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.red.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  onTap: () => _removeSong(index),
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.all(8.0),
-                                                    child: Icon(
-                                                      Icons.delete_outline,
-                                                      color: Colors.red[400],
-                                                      size: 22,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
+                                              spreadRadius: 1,
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          child:
+                                              hasThumb
+                                                  ? Image.file(
+                                                    File(potentialThumbPath),
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder:
+                                                        (
+                                                          context,
+                                                          error,
+                                                          stackTrace,
+                                                        ) => _buildFallbackIcon(
+                                                          context,
+                                                        ),
+                                                  )
+                                                  : _buildFallbackIcon(context),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              formattedName,
+                                              style: GoogleFonts.poppins(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 15,
+                                                color:
+                                                    isDark
+                                                        ? Colors.white
+                                                        : Colors.black87,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.music_note,
+                                                  size: 14,
+                                                  color:
+                                                      isDark
+                                                          ? Colors.grey[400]
+                                                          : Colors.grey[600],
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  "Track ${index + 1}",
+                                                  style: GoogleFonts.poppins(
+                                                    color:
+                                                        isDark
+                                                            ? Colors.grey[400]
+                                                            : Colors.grey[600],
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // Updated delete button
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons
+                                              .delete_forever_outlined, // Changed icon
+                                          color:
+                                              isDark
+                                                  ? Colors.red[300]
+                                                  : Colors.red[700],
+                                        ),
+                                        onPressed:
+                                            () => _removeSong(
+                                              index,
+                                            ), // Calls the updated function
+                                        tooltip: 'Delete from Library',
+                                        splashRadius: 20,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
+              ),
     );
   }
 }

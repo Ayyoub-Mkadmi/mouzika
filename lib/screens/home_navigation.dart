@@ -6,7 +6,7 @@ import '../providers/theme_provider.dart';
 import 'search_screen.dart'; // Assuming this is the correct path now
 import 'music_library_screen.dart';
 // Use the fixed NowPlayingScreen for the panel content
-import 'now_playing_screen.dart'; 
+import 'now_playing_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart'; // Import the panel package
@@ -25,18 +25,17 @@ class HomeNavigation extends StatefulWidget {
   State<HomeNavigation> createState() => _HomeNavigationState();
 }
 
-class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProviderStateMixin {
+class _HomeNavigationState extends State<HomeNavigation>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _animationController;
-  final PanelController _panelController = PanelController(); // Controller for the panel
-  final AudioPlayer _audioPlayer = AudioPlayerManager().audioPlayer; // Get audio player instance
-  
-  static const List<String> _titles = [
-    'Search',
-    'Library',
-    'Playlists',
-  ];
-  
+  final PanelController _panelController =
+      PanelController(); // Controller for the panel
+  final AudioPlayer _audioPlayer =
+      AudioPlayerManager().audioPlayer; // Get audio player instance
+
+  static const List<String> _titles = ['Search', 'Library', 'Playlists'];
+
   static const List<IconData> _icons = [
     Icons.search_rounded,
     Icons.library_music_rounded,
@@ -62,18 +61,18 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
   // Function to open the Now Playing panel
   void openNowPlayingPanel() {
     if (_panelController.isAttached && !_panelController.isPanelOpen) {
-       _panelController.open();
+      _panelController.open();
     }
   }
-  
+
   // Function to navigate to a specific tab
   void _navigateToTab(int index) {
-     if (_selectedIndex != index) {
-        HapticFeedback.selectionClick();
-        setState(() => _selectedIndex = index);
-        _animationController.reset();
-        _animationController.forward();
-      }
+    if (_selectedIndex != index) {
+      HapticFeedback.selectionClick();
+      setState(() => _selectedIndex = index);
+      _animationController.reset();
+      _animationController.forward();
+    }
   }
 
   @override
@@ -84,24 +83,23 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
     final screenPadding = MediaQuery.of(context).padding;
     final appBarHeight = AppBar().preferredSize.height;
     // *** USE HEIGHT OF MINI PLAYER WITHOUT PROGRESS BAR ***
-    final miniPlayerHeight = 65.0; 
+    final miniPlayerHeight = 65.0;
 
     // Estimate the bottom navigation bar height (SafeArea + nav bar)
-    final bottomNavBarHeight = kBottomNavigationBarHeight + screenPadding.bottom + 24; // 24 is your nav bar's vertical padding
+    final bottomNavBarHeight =
+        kBottomNavigationBarHeight +
+        screenPadding.bottom +
+        24; // 24 is your nav bar's vertical padding
 
     // Panel should fill the space below the AppBar and above the bottom navigation/system areas
-    final panelMaxHeight = screenHeight - appBarHeight - screenPadding.top - bottomNavBarHeight;
+    final panelMaxHeight =
+        screenHeight - appBarHeight - screenPadding.top - bottomNavBarHeight;
 
     // Create gradient colors based on theme
-    final List<Color> gradientColors = isDark
-        ? [
-            primaryColor.withOpacity(0.7),
-            primaryColor,
-          ]
-        : [
-            primaryColor.withOpacity(0.6),
-            primaryColor,
-          ];
+    final List<Color> gradientColors =
+        isDark
+            ? [primaryColor.withOpacity(0.7), primaryColor]
+            : [primaryColor.withOpacity(0.6), primaryColor];
 
     // Screens for the main body (excluding Now Playing)
     final _screens = [
@@ -167,24 +165,28 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: isDark 
-          ? SystemUiOverlayStyle.light.copyWith(
-              statusBarColor: Colors.transparent,
-              systemNavigationBarColor: Colors.transparent, 
-              systemNavigationBarIconBrightness: Brightness.light,
-            )
-          : SystemUiOverlayStyle.dark.copyWith(
-              statusBarColor: Colors.transparent,
-              systemNavigationBarColor: Colors.transparent, 
-              systemNavigationBarIconBrightness: Brightness.dark,
-            ),
+      value:
+          isDark
+              ? SystemUiOverlayStyle.light.copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: Colors.transparent,
+                systemNavigationBarIconBrightness: Brightness.light,
+              )
+              : SystemUiOverlayStyle.dark.copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: Colors.transparent,
+                systemNavigationBarIconBrightness: Brightness.dark,
+              ),
       child: Scaffold(
         appBar: appBar, // Use the defined AppBar
         body: StreamBuilder<SequenceState?>(
           stream: _audioPlayer.sequenceStateStream,
           builder: (context, sequenceSnapshot) {
-            final bool showMiniPlayer = sequenceSnapshot.hasData && sequenceSnapshot.data?.currentSource != null;
-            final double contentBottomPadding = showMiniPlayer ? miniPlayerHeight : 0;
+            final bool showMiniPlayer =
+                sequenceSnapshot.hasData &&
+                sequenceSnapshot.data?.currentSource != null;
+            final double contentBottomPadding =
+                showMiniPlayer ? miniPlayerHeight : 0;
 
             return Stack(
               children: [
@@ -199,26 +201,30 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
                 // SlidingUpPanel
                 SlidingUpPanel(
                   controller: _panelController,
-                  minHeight: showMiniPlayer ? miniPlayerHeight : 0, 
+                  minHeight: showMiniPlayer ? miniPlayerHeight : 0,
                   // *** USE CALCULATED MAX HEIGHT ***
-                  maxHeight: panelMaxHeight, 
+                  maxHeight: panelMaxHeight,
                   panel: Builder(
-                    builder: (context) => NowPlayingScreen(
-                      key: ValueKey(sequenceSnapshot.data?.currentSource),
-                    ),
+                    builder:
+                        (context) => NowPlayingScreen(
+                          key: ValueKey(sequenceSnapshot.data?.currentSource),
+                        ),
                   ),
                   collapsed: Builder(
-                    builder: (context) => MiniPlayerWidget(
-                      key: ValueKey(sequenceSnapshot.data?.currentSource),
-                      onTap: openNowPlayingPanel,
-                    ),
+                    builder:
+                        (context) => MiniPlayerWidget(
+                          key: ValueKey(sequenceSnapshot.data?.currentSource),
+                          onTap: openNowPlayingPanel,
+                        ),
                   ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24.0),
+                  ),
                   backdropEnabled: true,
                   backdropOpacity: 0.5,
                   parallaxEnabled: true,
                   parallaxOffset: 0.1,
-                  body: null, 
+                  body: null,
                 ),
               ],
             );
@@ -244,16 +250,22 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
                 top: false,
                 left: false,
                 right: false,
-                bottom: true, 
+                bottom: true,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8.0,
+                    vertical: 8.0,
+                  ),
                   child: Container(
                     decoration: BoxDecoration(
                       color: isDark ? Colors.grey[850] : Colors.grey[100],
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0,
+                        vertical: 8.0,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: List.generate(
@@ -266,16 +278,16 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
                 ),
               ),
             );
-          }
+          },
         ),
       ),
     );
   }
-  
+
   // Build individual navigation items (no changes needed here)
   Widget _buildNavItem(int index, bool isDark, Color primaryColor) {
     final isSelected = _selectedIndex == index;
-    
+
     return InkWell(
       onTap: () => _navigateToTab(index),
       borderRadius: BorderRadius.circular(16),
@@ -286,9 +298,14 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
           vertical: 8.0,
         ),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? (isDark ? primaryColor.withOpacity(0.2) : primaryColor.withOpacity(0.1))
-              : Colors.transparent,
+          color:
+              isSelected
+                  ? (isDark
+                      ? primaryColor.withOpacity(0.3)
+                      : primaryColor.withOpacity(
+                        0.1,
+                      )) // Increased opacity for dark mode background
+                  : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -296,7 +313,12 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
           children: [
             Icon(
               _icons[index],
-              color: isSelected ? primaryColor : (isDark ? Colors.grey[400] : Colors.grey[600]),
+              color:
+                  isSelected
+                      ? (isDark
+                          ? Colors.white
+                          : primaryColor) // White in dark mode, purple in light
+                      : (isDark ? Colors.grey[400] : Colors.grey[600]),
               size: isSelected ? 24 : 22,
             ),
             if (isSelected) ...[
@@ -304,7 +326,10 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
               Text(
                 _titles[index],
                 style: GoogleFonts.poppins(
-                  color: primaryColor,
+                  color:
+                      isDark
+                          ? Colors.white
+                          : primaryColor, // White in dark mode, purple in light
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),
@@ -316,4 +341,3 @@ class _HomeNavigationState extends State<HomeNavigation> with SingleTickerProvid
     );
   }
 }
-
