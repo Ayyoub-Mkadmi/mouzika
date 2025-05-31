@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:mouzika/screens/playlist_details_screen.dart';
+import 'package:mouzika/screens/playlist_details_screen.dart'; // Assuming correct path
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/playlist.dart';
+import '../models/playlist.dart'; // Assuming correct path
 
 class PlaylistScreen extends StatefulWidget {
   const PlaylistScreen({super.key});
@@ -190,10 +190,12 @@ class _PlaylistScreenState extends State<PlaylistScreen> with SingleTickerProvid
     );
   }
 
-  void _deletePlaylist(int index) {
+  // Modified to return Future<bool?> for Dismissible confirmation
+  Future<bool?> _confirmDeletePlaylist(int index) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final playlistName = _playlists[index].name;
     
-    showDialog(
+    return await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: isDark ? Colors.grey[850] : Colors.white,
@@ -208,14 +210,14 @@ class _PlaylistScreenState extends State<PlaylistScreen> with SingleTickerProvid
           ),
         ),
         content: Text(
-          'Are you sure you want to delete "${_playlists[index].name}"?',
+          'Are you sure you want to delete "$playlistName"?',
           style: GoogleFonts.poppins(
             color: isDark ? Colors.grey[300] : Colors.grey[700],
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false), // Return false on cancel
             child: Text(
               'Cancel',
               style: GoogleFonts.poppins(
@@ -241,12 +243,13 @@ class _PlaylistScreenState extends State<PlaylistScreen> with SingleTickerProvid
               child: InkWell(
                 borderRadius: BorderRadius.circular(30),
                 onTap: () {
+                  // Perform deletion logic here
                   setState(() {
                     _playlists.removeAt(index);
                   });
                   _savePlaylists();
                   HapticFeedback.mediumImpact();
-                  Navigator.pop(context);
+                  Navigator.pop(context, true); // Return true on confirmation
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -403,6 +406,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> with SingleTickerProvid
             itemCount: _playlists.length,
             itemBuilder: (context, index) {
               final playlist = _playlists[index];
+              final itemKey = ValueKey<String>(playlist.name + index.toString()); // Unique key
               
               return AnimationConfiguration.staggeredList(
                 position: index,
@@ -410,95 +414,134 @@ class _PlaylistScreenState extends State<PlaylistScreen> with SingleTickerProvid
                 child: SlideAnimation(
                   verticalOffset: 50.0,
                   child: FadeInAnimation(
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isDark
-                              ? [Colors.grey[850]!, Colors.grey[800]!]
-                              : [Colors.white, Colors.grey[50]!],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isDark
-                                ? Colors.black.withOpacity(0.3)
-                                : Colors.grey.withOpacity(0.2),
-                            spreadRadius: 1,
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
+                    // Wrap the item with Dismissible
+                    child: Dismissible(
+                      key: itemKey,
+                      direction: DismissDirection.endToStart, // Swipe left
+                      confirmDismiss: (direction) async {
+                        // Show confirmation dialog
+                        return await _confirmDeletePlaylist(index);
+                      },
+                      // Background shown when swiping
+                      background: Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.red.shade400,
+                              Colors.red.shade700,
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                           ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
                           borderRadius: BorderRadius.circular(16),
-                          onTap: () => _navigateToDetail(playlist, index),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Theme.of(context).primaryColor.withOpacity(0.7),
-                                        Theme.of(context).primaryColor,
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 28),
+                            SizedBox(width: 8),
+                            Text(
+                              'Delete',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // The actual playlist item widget
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isDark
+                                ? [Colors.grey[850]!, Colors.grey[800]!]
+                                : [Colors.white, Colors.grey[50]!],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark
+                                  ? Colors.black.withOpacity(0.3)
+                                  : Colors.grey.withOpacity(0.2),
+                              spreadRadius: 1,
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _navigateToDetail(playlist, index),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Theme.of(context).primaryColor.withOpacity(0.7),
+                                          Theme.of(context).primaryColor,
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                          spreadRadius: 1,
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
                                       ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
                                     ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                                        spreadRadius: 1,
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                                    child: const Icon(
+                                      Icons.queue_music_rounded,
+                                      color: Colors.white70,
+                                      size: 32,
+                                    ),
                                   ),
-                                  child: const Icon(
-                                    Icons.queue_music,
-                                    color: Colors.white,
-                                    size: 32,
-                                  ),
-                                ),
-                                const SizedBox(width: 18),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        playlist.name,
-                                        style: GoogleFonts.poppins(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 18,
-                                          color: isDark ? Colors.white : Colors.black87,
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          playlist.name,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark ? Colors.white : Colors.black87,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        "${playlist.songs.length} song${playlist.songs.length == 1 ? '' : 's'}",
-                                        style: GoogleFonts.poppins(
-                                          color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                          fontSize: 14,
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${playlist.songs.length} song${playlist.songs.length != 1 ? 's' : ''}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete_outline, color: Colors.red[400]),
-                                  onPressed: () => _deletePlaylist(index),
-                                  tooltip: 'Delete playlist',
-                                ),
-                              ],
+                                  Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    size: 18,
+                                    color: isDark ? Colors.grey[600] : Colors.grey[400],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -514,3 +557,4 @@ class _PlaylistScreenState extends State<PlaylistScreen> with SingleTickerProvid
     );
   }
 }
+
