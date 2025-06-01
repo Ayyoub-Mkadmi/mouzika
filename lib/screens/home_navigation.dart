@@ -102,7 +102,7 @@ class _HomeNavigationState extends State<HomeNavigation>
             : [primaryColor.withOpacity(0.6), primaryColor];
 
     // Screens for the main body (excluding Now Playing)
-    final _screens = [
+    final screens = [
       const SearchScreen(),
       const MusicLibraryScreen(),
       const PlaylistScreen(),
@@ -195,7 +195,7 @@ class _HomeNavigationState extends State<HomeNavigation>
                   padding: EdgeInsets.only(bottom: contentBottomPadding),
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    child: _screens[_selectedIndex],
+                    child: screens[_selectedIndex],
                   ),
                 ),
                 // SlidingUpPanel

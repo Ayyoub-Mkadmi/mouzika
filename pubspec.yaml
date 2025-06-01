@@ -51,6 +51,7 @@ dependencies:
   flutter_staggered_animations: ^1.1.1
   google_fonts: ^5.1.0
   rxdart: ^0.27.0
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:

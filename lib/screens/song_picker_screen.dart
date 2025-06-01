@@ -13,7 +13,7 @@ class SongPickerScreen extends StatefulWidget {
 
 class _SongPickerScreenState extends State<SongPickerScreen> {
   List<File> _songs = [];
-  Set<String> _selectedPaths = {};
+  final Set<String> _selectedPaths = {};
 
   @override
   void initState() {

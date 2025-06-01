@@ -12,12 +12,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:path_provider/path_provider.dart';
 
 // Define your primary color constant
-const Color kPrimaryPurple = Color.fromARGB(
-  255,
-  61,
-  21,
-  242,
-); // Or use your specific Color(0xFF...) value
+const Color kPrimaryPurple = Color.fromARGB(255, 102, 70, 249);
 
 void main() async {
   // Make main async

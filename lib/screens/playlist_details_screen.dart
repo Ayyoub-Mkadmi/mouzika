@@ -471,8 +471,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen>
                   itemCount: _playlist.songs.length,
                   physics: const BouncingScrollPhysics(),
                   itemBuilder: (context, index) {
-                    if (index >= _playlist.songs.length)
+                    if (index >= _playlist.songs.length) {
                       return const SizedBox.shrink(); // Safety check
+                    }
                     final path = _playlist.songs[index];
                     final fileName = p.basename(path);
                     final formattedName = _formatFileName(fileName);

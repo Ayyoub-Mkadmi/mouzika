@@ -7,21 +7,18 @@ class ActionButtonWidget extends StatelessWidget {
   final VoidCallback onPressed;
 
   const ActionButtonWidget({
-    Key? key,
+    super.key,
     required this.icon,
     required this.color,
     required this.onPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            color.withOpacity(0.8),
-            color,
-          ],
+          colors: [color.withOpacity(0.8), color],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -42,11 +39,7 @@ class ActionButtonWidget extends StatelessWidget {
           onTap: onPressed,
           child: Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 22,
-            ),
+            child: Icon(icon, color: Colors.white, size: 22),
           ),
         ),
       ),

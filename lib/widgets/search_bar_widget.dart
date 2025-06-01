@@ -8,31 +8,31 @@ class SearchBarWidget extends StatelessWidget {
   final VoidCallback onSearchPressed;
 
   const SearchBarWidget({
-    Key? key,
+    super.key,
     required this.controller,
     required this.onSubmitted,
     required this.onChanged,
     required this.onSearchPressed,
-  }) : super(key: key);
+  });
 
   // Get primary gradient colors based on theme
   List<Color> _getPrimaryGradient(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return isDark
         ? [
-            Theme.of(context).primaryColor.withOpacity(0.8),
-            Theme.of(context).primaryColor,
-          ]
+          Theme.of(context).primaryColor.withOpacity(0.8),
+          Theme.of(context).primaryColor,
+        ]
         : [
-            Theme.of(context).primaryColor.withOpacity(0.7),
-            Theme.of(context).primaryColor,
-          ];
+          Theme.of(context).primaryColor.withOpacity(0.7),
+          Theme.of(context).primaryColor,
+        ];
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
       child: Container(
@@ -40,7 +40,9 @@ class SearchBarWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Theme.of(context).primaryColor.withOpacity(isDark ? 0.2 : 0.3),
+              color: Theme.of(
+                context,
+              ).primaryColor.withOpacity(isDark ? 0.2 : 0.3),
               spreadRadius: 1,
               blurRadius: 12,
               offset: const Offset(0, 4),
@@ -81,10 +83,7 @@ class SearchBarWidget extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(30),
                   onTap: onSearchPressed,
-                  child: const Icon(
-                    Icons.search,
-                    color: Colors.white,
-                  ),
+                  child: const Icon(Icons.search, color: Colors.white),
                 ),
               ),
             ),

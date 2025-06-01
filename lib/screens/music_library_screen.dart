@@ -12,19 +12,20 @@ import '../models/playlist.dart'; // Assuming correct path
 import '../models/track.dart'; // Import Track model
 
 class MusicLibraryScreen extends StatefulWidget {
-  const MusicLibraryScreen({Key? key}) : super(key: key);
+  const MusicLibraryScreen({super.key});
 
   @override
   State<MusicLibraryScreen> createState() => _MusicLibraryScreenState();
 }
 
-class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTickerProviderStateMixin {
+class _MusicLibraryScreenState extends State<MusicLibraryScreen>
+    with SingleTickerProviderStateMixin {
   List<File> _mp3Files = [];
   List<Playlist> _playlists = [];
   bool _isLoading = true;
   late AnimationController _animationController;
   late Box<Track> _trackBox; // Hive box for tracks
-  
+
   @override
   void initState() {
     super.initState();
@@ -53,10 +54,10 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
     }
     // Also open recently played box if needed for consistency
     if (!Hive.isBoxOpen('recently_played')) {
-       await Hive.openBox<String>('recently_played');
+      await Hive.openBox<String>('recently_played');
     }
   }
-  
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -68,7 +69,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
     setState(() {
       _isLoading = true;
     });
-    
+
     final directory = await getApplicationDocumentsDirectory();
     final musicDir = Directory('${directory.path}/mp3s');
 
@@ -83,7 +84,9 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
               .cast<File>()
               .toList();
       // Sort files alphabetically by name
-      files.sort((a, b) => a.path.split('/').last.compareTo(b.path.split('/').last));
+      files.sort(
+        (a, b) => a.path.split('/').last.compareTo(b.path.split('/').last),
+      );
       setState(() {
         _mp3Files = files;
         _isLoading = false;
@@ -118,7 +121,10 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
     if (track == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: Track metadata not found.', style: GoogleFonts.poppins()),
+          content: Text(
+            'Error: Track metadata not found.',
+            style: GoogleFonts.poppins(),
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -170,16 +176,17 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
                   child: Text(
                     'Create Playlist',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -187,7 +194,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
             ),
           );
         }
-        
+
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -212,7 +219,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                   final playlist = _playlists[index];
                   // Use track.key for checking if added
                   final alreadyAdded = playlist.songs.contains(track.key);
-                  
+
                   return AnimationConfiguration.staggeredList(
                     position: index,
                     duration: const Duration(milliseconds: 375),
@@ -225,12 +232,15 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                             height: 40,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: alreadyAdded
-                                  ? [Colors.grey[400]!, Colors.grey[600]!]
-                                  : [
-                                      Theme.of(context).primaryColor.withOpacity(0.7),
-                                      Theme.of(context).primaryColor,
-                                    ],
+                                colors:
+                                    alreadyAdded
+                                        ? [Colors.grey[400]!, Colors.grey[600]!]
+                                        : [
+                                          Theme.of(
+                                            context,
+                                          ).primaryColor.withOpacity(0.7),
+                                          Theme.of(context).primaryColor,
+                                        ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -252,35 +262,39 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                             '${playlist.songs.length} song${playlist.songs.length != 1 ? 's' : ''}',
                             style: GoogleFonts.poppins(
                               fontSize: 12,
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              color:
+                                  isDark ? Colors.grey[400] : Colors.grey[600],
                             ),
                           ),
                           enabled: !alreadyAdded,
-                          onTap: alreadyAdded
-                              ? null
-                              : () {
-                                  setState(() {
-                                    // Add track.key instead of filePath
-                                    playlist.songs.add(track.key);
-                                  });
-                                  _savePlaylists();
-                                  Navigator.pop(context);
-                                  
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Added "${track.title}" to "${playlist.name}"',
-                                        style: GoogleFonts.poppins(),
+                          onTap:
+                              alreadyAdded
+                                  ? null
+                                  : () {
+                                    setState(() {
+                                      // Add track.key instead of filePath
+                                      playlist.songs.add(track.key);
+                                    });
+                                    _savePlaylists();
+                                    Navigator.pop(context);
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Added "${track.title}" to "${playlist.name}"',
+                                          style: GoogleFonts.poppins(),
+                                        ),
+                                        behavior: SnackBarBehavior.floating,
+                                        backgroundColor: Colors.green[700],
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        duration: const Duration(seconds: 2),
                                       ),
-                                      behavior: SnackBarBehavior.floating,
-                                      backgroundColor: Colors.green[700],
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
+                                    );
+                                  },
                         ),
                       ),
                     ),
@@ -313,73 +327,80 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
   Future<bool?> _confirmDeleteSong(File file) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final track = _findTrackByPath(file.path);
-    final trackTitle = track?.title ?? _formatFileName(file.path.split('/').last);
+    final trackTitle =
+        track?.title ?? _formatFileName(file.path.split('/').last);
 
     return await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: isDark ? Colors.grey[850] : Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(
-          'Delete Song',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to delete "$trackTitle"? This will remove the file permanently.',
-          style: GoogleFonts.poppins(
-            color: isDark ? Colors.grey[300] : Colors.grey[700],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false), // Return false on cancel
-            child: Text(
-              'Cancel',
+      builder:
+          (_) => AlertDialog(
+            backgroundColor: isDark ? Colors.grey[850] : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Text(
+              'Delete Song',
               style: GoogleFonts.poppins(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
               ),
             ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.red.shade400,
-                  Colors.red.shade700,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+            content: Text(
+              'Are you sure you want to delete "$trackTitle"? This will remove the file permanently.',
+              style: GoogleFonts.poppins(
+                color: isDark ? Colors.grey[300] : Colors.grey[700],
               ),
-              borderRadius: BorderRadius.circular(30),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(30),
-                onTap: () async {
-                  Navigator.pop(context, true); // Return true to confirm deletion
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: Text(
-                    'Delete',
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
+            actions: [
+              TextButton(
+                onPressed:
+                    () =>
+                        Navigator.pop(context, false), // Return false on cancel
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.red.shade400, Colors.red.shade700],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(30),
+                    onTap: () async {
+                      Navigator.pop(
+                        context,
+                        true,
+                      ); // Return true to confirm deletion
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Text(
+                        'Delete',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -424,16 +445,18 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
           print("Removed track key $trackKey from playlists");
         }
       }
-      
+
       // 5. Remove from Recently Played (if implemented)
       final recentBox = Hive.box<String>('recently_played');
-      if (trackKey != null && recentBox.values.contains(trackKey)){
-         // Find the entry and delete it by its index/key in the recent box
-         var entries = recentBox.toMap().entries.where((entry) => entry.value == trackKey);
-         for (var entry in entries) {
-            await recentBox.delete(entry.key);
-         }
-         print("Removed track key $trackKey from recently played");
+      if (trackKey != null && recentBox.values.contains(trackKey)) {
+        // Find the entry and delete it by its index/key in the recent box
+        var entries = recentBox.toMap().entries.where(
+          (entry) => entry.value == trackKey,
+        );
+        for (var entry in entries) {
+          await recentBox.delete(entry.key);
+        }
+        print("Removed track key $trackKey from recently played");
       }
 
       // 6. Update UI State
@@ -444,19 +467,26 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('"${track?.title ?? 'Song'}" deleted successfully.', style: GoogleFonts.poppins()),
+          content: Text(
+            '"${track?.title ?? 'Song'}" deleted successfully.',
+            style: GoogleFonts.poppins(),
+          ),
           backgroundColor: Colors.green[700],
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           duration: const Duration(seconds: 2),
         ),
       );
-
     } catch (e) {
       print("Error deleting song: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error deleting song: $e', style: GoogleFonts.poppins()),
+          content: Text(
+            'Error deleting song: $e',
+            style: GoogleFonts.poppins(),
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -503,11 +533,19 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 28),
+                  Icon(
+                    Icons.delete_sweep_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Delete',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ],
               ),
@@ -517,18 +555,20 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: isDark
-                      ? [Colors.grey[850]!, Colors.grey[800]!]
-                      : [Colors.white, Colors.grey[50]!],
+                  colors:
+                      isDark
+                          ? [Colors.grey[850]!, Colors.grey[800]!]
+                          : [Colors.white, Colors.grey[50]!],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: isDark
-                        ? Colors.black.withOpacity(0.3)
-                        : Colors.grey.withOpacity(0.2),
+                    color:
+                        isDark
+                            ? Colors.black.withOpacity(0.3)
+                            : Colors.grey.withOpacity(0.2),
                     spreadRadius: 1,
                     blurRadius: 8,
                     offset: const Offset(0, 3),
@@ -542,7 +582,10 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                   onTap: () async {
                     HapticFeedback.lightImpact();
                     // Corrected method call
-                    await AudioPlayerManager().setPlaylist(allFiles, initialIndex: index);
+                    await AudioPlayerManager().setPlaylist(
+                      allFiles,
+                      initialIndex: index,
+                    );
                     AudioPlayerManager().play();
                   },
                   child: Padding(
@@ -565,13 +608,16 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: hasThumb
-                                ? Image.file(
-                                    File(thumbPath),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(isDark),
-                                  )
-                                : _buildFallbackIcon(isDark),
+                            child:
+                                hasThumb
+                                    ? Image.file(
+                                      File(thumbPath),
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              _buildFallbackIcon(isDark),
+                                    )
+                                    : _buildFallbackIcon(isDark),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -580,7 +626,8 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                track?.title ?? formattedName, // Use Hive title if available
+                                track?.title ??
+                                    formattedName, // Use Hive title if available
                                 style: GoogleFonts.poppins(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
@@ -595,13 +642,19 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                                   Icon(
                                     Icons.music_note,
                                     size: 14,
-                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    color:
+                                        isDark
+                                            ? Colors.grey[400]
+                                            : Colors.grey[600],
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     "Local Music",
                                     style: GoogleFonts.poppins(
-                                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                      color:
+                                          isDark
+                                              ? Colors.grey[400]
+                                              : Colors.grey[600],
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
                                     ),
@@ -623,7 +676,10 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
                           onPressed: () async {
                             HapticFeedback.lightImpact();
                             // Corrected method call
-                            await AudioPlayerManager().setPlaylist(allFiles, initialIndex: index);
+                            await AudioPlayerManager().setPlaylist(
+                              allFiles,
+                              initialIndex: index,
+                            );
                             AudioPlayerManager().play();
                           },
                         ),
@@ -638,7 +694,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
       ),
     );
   }
-  
+
   Widget _buildFallbackIcon(bool isDark) {
     return Container(
       color: isDark ? Colors.grey[800] : Colors.grey[300],
@@ -651,8 +707,12 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
       ),
     );
   }
-  
-  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed}) {
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 40,
@@ -662,22 +722,21 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
         color: isDark ? Colors.grey[700] : Colors.grey[200],
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.2) : Colors.grey.withOpacity(0.3),
+            color:
+                isDark
+                    ? Colors.black.withOpacity(0.2)
+                    : Colors.grey.withOpacity(0.3),
             blurRadius: 3,
             offset: const Offset(0, 1),
-          )
-        ]
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onPressed,
-          child: Icon(
-            icon,
-            color: color,
-            size: 24,
-          ),
+          child: Icon(icon, color: color, size: 24),
         ),
       ),
     );
@@ -695,9 +754,10 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.grey[800]!.withOpacity(0.3)
-                    : Colors.grey[200]!.withOpacity(0.5),
+                color:
+                    isDark
+                        ? Colors.grey[800]!.withOpacity(0.3)
+                        : Colors.grey[200]!.withOpacity(0.5),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -734,7 +794,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
   }
 
   Widget _buildLoadingState() {
-     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -744,9 +804,10 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
             height: 80,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.grey[800]!.withOpacity(0.3)
-                  : Colors.grey[100],
+              color:
+                  isDark
+                      ? Colors.grey[800]!.withOpacity(0.3)
+                      : Colors.grey[100],
               borderRadius: BorderRadius.circular(20),
             ),
             child: CircularProgressIndicator(
@@ -790,4 +851,3 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen> with SingleTick
     );
   }
 }
-

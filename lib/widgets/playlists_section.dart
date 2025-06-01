@@ -12,11 +12,11 @@ class PlaylistsSection extends StatelessWidget {
   final Function() onRefreshPlaylists;
 
   const PlaylistsSection({
-    Key? key,
+    super.key,
     required this.playlists,
     required this.tracks,
     required this.onRefreshPlaylists,
-  }) : super(key: key);
+  });
 
   Widget _buildSectionTitle(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

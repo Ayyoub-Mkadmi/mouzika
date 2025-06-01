@@ -10,10 +10,10 @@ class RecentlyPlayedSection extends StatelessWidget {
   final Function() onRefreshTracks;
 
   const RecentlyPlayedSection({
-    Key? key,
+    super.key,
     required this.tracks,
     required this.onRefreshTracks,
-  }) : super(key: key);
+  });
 
   Widget _buildSectionTitle(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;

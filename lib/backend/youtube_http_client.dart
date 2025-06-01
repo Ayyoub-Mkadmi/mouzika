@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
@@ -22,9 +21,8 @@ class ProxyHttpClient extends YoutubeHttpClient {
   /*-----------------------------------------------------------
   | helpers
   `-----------------------------------------------------------*/
-  Uri _buildProxyUri(dynamic originalUrl) => Uri.parse(
-        '$gateway${Uri.encodeFull(originalUrl.toString())}',
-      );
+  Uri _buildProxyUri(dynamic originalUrl) =>
+      Uri.parse('$gateway${Uri.encodeFull(originalUrl.toString())}');
 
   Future<http.Response> _doGet(Uri uri, Map<String, String>? headers) =>
       _client.get(uri, headers: headers);
@@ -43,8 +41,7 @@ class ProxyHttpClient extends YoutubeHttpClient {
       final response = await _doGet(_buildProxyUri(url), headers);
 
       if (validate && response.statusCode != 200) {
-        throw Exception(
-            'Proxy request failed → HTTP ${response.statusCode}');
+        throw Exception('Proxy request failed → HTTP ${response.statusCode}');
       }
 
       // ALWAYS decode manually with UTF‑8
@@ -55,21 +52,21 @@ class ProxyHttpClient extends YoutubeHttpClient {
   }
 
   // youtube_explode_dart sometimes needs the raw bytes
- @override
-Future<http.Response> get(
-  dynamic url, {
-  Map<String, String>? headers,
-  bool validate = true,
-  bool raw = false,
-}) async {
-  final response = await _doGet(_buildProxyUri(url), headers);
+  @override
+  Future<http.Response> get(
+    dynamic url, {
+    Map<String, String>? headers,
+    bool validate = true,
+    bool raw = false,
+  }) async {
+    final response = await _doGet(_buildProxyUri(url), headers);
 
-  if (validate && response.statusCode != 200) {
-    throw Exception('Proxy request failed → HTTP ${response.statusCode}');
+    if (validate && response.statusCode != 200) {
+      throw Exception('Proxy request failed → HTTP ${response.statusCode}');
+    }
+
+    return response;
   }
-
-  return response;
-}
 
   @override
   void close() {
