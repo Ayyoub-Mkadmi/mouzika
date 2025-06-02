@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "927321611398",
+    "firebase_url": "https://youtunes-apis-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "youtunes-apis",
+    "storage_bucket": "youtunes-apis.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:927321611398:android:5ffaf25ef308c979620507",
+        "android_client_info": {
+          "package_name": "com.example.mouzika"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQf7TwFTh6SmMPjh56AhmQ64XcwZ2b98o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -10,13 +10,17 @@ import 'package:provider/provider.dart';
 // import 'screens/home_navigation.dart'; // Duplicate import removed
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+
 
 // Define your primary color constant
 const Color kPrimaryPurple = Color.fromARGB(255, 102, 70, 249);
 
 void main() async {
   // Make main async
+  
   WidgetsFlutterBinding.ensureInitialized(); // Ensure bindings are initialized
+  await Firebase.initializeApp();
 
   // Initialize ThemeProvider *before* other initializations that might need it,
   // and definitely before runApp.

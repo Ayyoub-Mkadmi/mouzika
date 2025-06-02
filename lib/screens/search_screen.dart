@@ -5,17 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-// import 'package:mouzika/backend/youtube_downloader.dart'; // Not used for streaming
-import 'package:mouzika/models/playlist.dart'; // Keep this import as is
+import 'package:mouzika/models/playlist.dart';
 import 'package:mouzika/models/track.dart';
 import 'package:mouzika/models/video_result.dart';
 import 'package:mouzika/services/api_service.dart';
 import 'package:mouzika/services/audio_player_manager.dart';
 import 'package:mouzika/services/downloader.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:just_audio/just_audio.dart'; // Import just_audio for AudioSource
-import 'package:just_audio_background/just_audio_background.dart'; // Import for MediaItem
-// Hide the conflicting Playlist class from youtube_explode_dart
+import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' hide Playlist;
 
 import '../widgets/search_bar_widget.dart';
@@ -23,6 +21,8 @@ import '../widgets/search_result_item.dart';
 import '../widgets/recently_played_section.dart';
 import '../widgets/playlists_section.dart';
 import '../widgets/search_state_widgets.dart';
+// *** IMPORT THE API KEY SETTINGS SCREEN ***
+import 'api_key_settings_screen.dart'; 
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -40,14 +40,19 @@ class _SearchScreenState extends State<SearchScreen>
   bool _isSearchMode = false;
   List<Track> _tracks = [];
   List<Track> _recentlyPlayedTracks = [];
-  List<Playlist> _playlists = []; // This refers to your model's Playlist
+  List<Playlist> _playlists = [];
   late Box<Track> trackBox;
   late Box<String> recentlyPlayedBox;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  final YoutubeExplode _ytExplode =
-      YoutubeExplode(); // Instance of YoutubeExplode
-  bool _isFetchingStream = false; // State for stream fetching indicator
+  final YoutubeExplode _ytExplode = YoutubeExplode();
+  bool _isFetchingStream = false;
+
+  // *** Variables for hidden access gesture ***
+  int _tapCount = 0;
+  DateTime? _lastTapTime;
+  final Duration _tapInterval = const Duration(milliseconds: 400); // Max interval between taps
+  // *** End variables for hidden access gesture ***
 
   @override
   void initState() {
@@ -66,14 +71,11 @@ class _SearchScreenState extends State<SearchScreen>
 
   Future<void> _initHive() async {
     trackBox = Hive.box<Track>('tracks');
-
-    // Initialize recently played box if it doesn't exist
     if (!Hive.isBoxOpen('recently_played')) {
       recentlyPlayedBox = await Hive.openBox<String>('recently_played');
     } else {
       recentlyPlayedBox = Hive.box<String>('recently_played');
     }
-
     _loadTracks();
     _loadRecentlyPlayed();
   }
@@ -91,42 +93,30 @@ class _SearchScreenState extends State<SearchScreen>
 
   Future<void> _loadRecentlyPlayed() async {
     if (!mounted) return;
-    // Get recently played track IDs from Hive
     final recentIds = recentlyPlayedBox.values.toList();
-
-    // Create a temporary list to avoid modifying _tracks directly while iterating
     final currentTracks = List<Track>.from(_tracks);
-
     if (recentIds.isEmpty) {
       setState(() {
         _recentlyPlayedTracks = currentTracks;
       });
       return;
     }
-
-    // Sort tracks based on recently played order
     final sortedTracks = <Track>[];
-    final addedIds = <String>{}; // Keep track of added IDs to avoid duplicates
-
-    // First add tracks in the order they were played
+    final addedIds = <String>{};
     for (final id in recentIds.reversed) {
       final track = currentTracks.firstWhere(
         (t) => t.videoId == id,
-        orElse: () => null as Track, // Handle case where track might be deleted
+        orElse: () => null as Track,
       );
-
       if (track != null && addedIds.add(track.videoId)) {
         sortedTracks.add(track);
       }
     }
-
-    // Then add any remaining tracks that weren't in recentIds
     for (final track in currentTracks) {
       if (addedIds.add(track.videoId)) {
         sortedTracks.add(track);
       }
     }
-
     setState(() {
       _recentlyPlayedTracks = sortedTracks;
     });
@@ -136,7 +126,6 @@ class _SearchScreenState extends State<SearchScreen>
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     final playlistData = prefs.getStringList('playlists') ?? [];
-
     setState(() {
       _playlists =
           playlistData.map((e) => Playlist.fromJson(json.decode(e))).toList();
@@ -154,7 +143,7 @@ class _SearchScreenState extends State<SearchScreen>
   void dispose() {
     _animationController.dispose();
     _controller.dispose();
-    _ytExplode.close(); // Close the YoutubeExplode instance
+    _ytExplode.close();
     super.dispose();
   }
 
@@ -173,7 +162,6 @@ class _SearchScreenState extends State<SearchScreen>
       _isLoading = true;
       _error = null;
     });
-
     try {
       final results = await ApiService.searchVideos(query);
       if (!mounted) return;
@@ -195,20 +183,14 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   void _onTrackPlayed(Track track) {
-    // Add to recently played in Hive
     recentlyPlayedBox.add(track.videoId);
-
-    // Keep only the last 50 entries to avoid excessive growth
     if (recentlyPlayedBox.length > 50) {
       recentlyPlayedBox.deleteAt(0);
     }
-
-    // Refresh the recently played list
     _loadRecentlyPlayed();
   }
 
   void _onDownloadVideo(VideoResult video) async {
-    // Show immediate feedback that download started
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -219,13 +201,9 @@ class _SearchScreenState extends State<SearchScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
-
     final ok = await Downloader.downloadAndStore(video);
     if (!context.mounted) return;
-
-    ScaffoldMessenger.of(
-      context,
-    ).removeCurrentSnackBar(); // Remove the 'starting' snackbar
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -239,22 +217,16 @@ class _SearchScreenState extends State<SearchScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
-
-    // Refresh tracks after download attempt
     _loadTracks();
     _loadRecentlyPlayed();
   }
 
-  // Updated function to play video stream online
   Future<void> _onPlayVideo(VideoResult video) async {
-    if (_isFetchingStream) return; // Prevent multiple taps
-
+    if (_isFetchingStream) return;
     if (!mounted) return;
     setState(() {
       _isFetchingStream = true;
     });
-
-    // Show immediate feedback
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -265,47 +237,23 @@ class _SearchScreenState extends State<SearchScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
-
     try {
-      final manifest = await _ytExplode.videos.streamsClient.getManifest(
-        video.videoId,
-      );
-      // Get the best quality audio-only stream
+      final manifest = await _ytExplode.videos.streamsClient.getManifest(video.videoId);
       final audioStreamInfo = manifest.audioOnly.withHighestBitrate();
       final streamUrl = audioStreamInfo.url;
-
-      // Create MediaItem for background playback
       final mediaItem = MediaItem(
-        id: streamUrl.toString(), // Use stream URL as ID for this source
+        id: streamUrl.toString(),
         title: video.title,
         artUri: Uri.parse(video.thumbnailUrl),
-        artist:
-            "Unknown Artist", // You might get artist info from elsewhere if available
-        extras: {
-          'videoId': video.videoId, // Store videoId for potential future use
-        },
+        artist: "Unknown Artist",
+        extras: {'videoId': video.videoId},
       );
-
-      // Create AudioSource
       final audioSource = AudioSource.uri(streamUrl, tag: mediaItem);
-
-      // Use the new setAudioSource method
       await AudioPlayerManager().setAudioSource(audioSource);
-
-      // *** Explicitly seek to beginning after setting source ***
       await AudioPlayerManager().audioPlayer.seek(Duration.zero);
-
-      // Now play
       AudioPlayerManager().play();
-
-      // Optionally, add to recently played (even if streamed)
-      // recentlyPlayedBox.add(video.videoId);
-      // _loadRecentlyPlayed();
-
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).removeCurrentSnackBar(); // Remove preparing message
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
       }
     } catch (e) {
       print("Error fetching or playing stream: $e");
@@ -319,9 +267,7 @@ class _SearchScreenState extends State<SearchScreen>
             ),
             backgroundColor: Colors.red[700],
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -353,7 +299,6 @@ class _SearchScreenState extends State<SearchScreen>
         FocusScope.of(context).unfocus();
       });
     }
-
     return Stack(
       children: [
         AnimationLimiter(
@@ -366,11 +311,10 @@ class _SearchScreenState extends State<SearchScreen>
                   video: _results[index],
                   index: index,
                   onDownload: _onDownloadVideo,
-                  onPlay: _onPlayVideo, // Pass the updated function
+                  onPlay: _onPlayVideo,
                 ),
           ),
         ),
-        // Loading indicator for stream fetching
         if (_isFetchingStream)
           Container(
             color: Colors.black.withOpacity(0.3),
@@ -382,7 +326,6 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildHomeContent() {
     final bool hasContent = _tracks.isNotEmpty || _playlists.isNotEmpty;
-
     if (!hasContent) {
       return SearchStateWidgets.buildWelcomeState(context, () {
         FocusScope.of(context).requestFocus(FocusNode());
@@ -392,7 +335,6 @@ class _SearchScreenState extends State<SearchScreen>
         );
       });
     }
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(
@@ -406,41 +348,76 @@ class _SearchScreenState extends State<SearchScreen>
             },
           ),
           PlaylistsSection(
-            playlists: _playlists, // Use your model's Playlist here
+            playlists: _playlists,
             tracks: _tracks,
             onRefreshPlaylists: _loadPlaylists,
           ),
-          const SizedBox(height: 100), // Bottom padding
+          const SizedBox(height: 100),
         ],
       ),
     );
   }
 
+  // *** Function to handle taps for hidden access ***
+  void _handleTap() {
+    final now = DateTime.now();
+    if (_lastTapTime == null || now.difference(_lastTapTime!) > _tapInterval) {
+      // If first tap or interval too long, reset count
+      _tapCount = 1;
+    } else {
+      // Increment count if within interval
+      _tapCount++;
+    }
+    _lastTapTime = now;
+
+    if (_tapCount >= 4) {
+      // Reset count and navigate
+      _tapCount = 0;
+      _lastTapTime = null; // Reset time as well
+      print("Navigating to API Key Settings..."); // Debug print
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ApiKeySettingsScreen()),
+      );
+    }
+    // Optional: print tap count for debugging
+    // print("Tap count: $_tapCount");
+  }
+  // *** End function for hidden access ***
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SearchBarWidget(
-          controller: _controller,
-          onSubmitted: _searchVideos,
-          onChanged: (value) {
-            if (value.isEmpty && _isSearchMode) {
-              if (!mounted) return;
-              setState(() {
-                _isSearchMode = false;
-                _results = [];
-              });
-            }
-          },
-          onSearchPressed: () => _searchVideos(_controller.text),
-        ),
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 400),
-            child: _isSearchMode ? _buildSearchResults() : _buildHomeContent(),
+    // *** Wrap the main Column with GestureDetector ***
+    return GestureDetector(
+      onTap: _handleTap, // Call the tap handler
+      // Use HitTestBehavior.opaque to ensure taps on empty space are caught
+      behavior: HitTestBehavior.opaque, 
+      child: Column(
+        children: [
+          SearchBarWidget(
+            controller: _controller,
+            onSubmitted: _searchVideos,
+            onChanged: (value) {
+              if (value.isEmpty && _isSearchMode) {
+                if (!mounted) return;
+                setState(() {
+                  _isSearchMode = false;
+                  _results = [];
+                });
+              }
+            },
+            onSearchPressed: () => _searchVideos(_controller.text),
           ),
-        ),
-      ],
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              child: _isSearchMode ? _buildSearchResults() : _buildHomeContent(),
+            ),
+          ),
+        ],
+      ),
     );
+    // *** End GestureDetector wrapper ***
   }
 }
+
