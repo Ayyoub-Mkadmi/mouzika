@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_service/audio_service.dart'; // Keep for MediaItem tag
+import 'package:hive/hive.dart'; // Import Hive for Track lookup
+import '../models/track.dart'; // Import Track model
 
 class AudioPlayerManager {
   static final AudioPlayerManager _instance = AudioPlayerManager._internal();
@@ -24,22 +26,44 @@ class AudioPlayerManager {
     _filePlaylist = files;
     _currentSourceType = SourceType.localPlaylist;
 
+    // Ensure the tracks box is open
+    final trackBox = Hive.isBoxOpen('tracks') 
+        ? Hive.box<Track>('tracks') 
+        : await Hive.openBox<Track>('tracks');
+
     // Create MediaItems for each file
-    final audioSources =
-        files.map((file) {
-          final fileName = file.path.split('/').last.replaceAll('.mp3', '');
-          // Basic MediaItem - consider fetching real metadata if possible
-          return AudioSource.uri(
-            Uri.file(file.path),
-            tag: MediaItem(
-              id: file.path, // Use file path as unique ID
-              album: 'Local Files',
-              title: fileName,
-              artist: 'Unknown Artist',
-              // artUri: Uri.parse('https://example.com/default_cover.jpg'), // Placeholder art
-            ),
-          );
-        }).toList();
+    final audioSources = files.map((file) {
+      final fileName = file.path.split('/').last.replaceAll('.mp3', '');
+      
+      // Look up the track in Hive to get the thumbnail path
+      Track? track;
+      try {
+        // Find the track with matching mp3Path - don't use orElse with null
+        for (var t in trackBox.values) {
+          if (t.mp3Path == file.path) {
+            track = t;
+            break;
+          }
+        }
+      } catch (_) {
+        // Handle any potential errors in lookup
+      }
+
+      // Create MediaItem with artwork if available
+      return AudioSource.uri(
+        Uri.file(file.path),
+        tag: MediaItem(
+          id: file.path, // Use file path as unique ID
+          album: 'Local Files',
+          title: fileName,
+          artist: 'Unknown Artist',
+          // Set artUri if we have a valid thumbnail path
+          artUri: track != null && track.thumbPath.isNotEmpty && File(track.thumbPath).existsSync()
+              ? Uri.file(track.thumbPath)
+              : null,
+        ),
+      );
+    }).toList();
 
     _playlistSource = ConcatenatingAudioSource(children: audioSources);
 

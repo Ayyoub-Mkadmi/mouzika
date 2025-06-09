@@ -8,6 +8,9 @@ import 'package:rxdart/rxdart.dart';
 import 'package:audio_service/audio_service.dart'; // Needed for MediaItem
 import 'package:cached_network_image/cached_network_image.dart'; // For network images
 
+// Import the PanelStateProvider
+import '../widgets/panel_state_provider.dart';
+
 class NowPlayingScreen extends StatefulWidget {
   const NowPlayingScreen({super.key});
 
@@ -131,6 +134,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Get panel state from provider
+    final isPanelOpen = PanelStateProvider.of(context)?.isPanelOpen ?? false;
 
     if (_hasError) {
       return _buildErrorState(isDark);
@@ -174,7 +180,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _buildHeader(isDark),
+                    _buildHeader(isDark, isPanelOpen), // Pass isPanelOpen to header
                     Expanded(
                       child: SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
@@ -204,8 +210,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     );
   }
 
-  Widget _buildHeader(bool isDark) {
-    // This can remain as is, doesn't depend on MediaItem directly
+  Widget _buildHeader(bool isDark, bool isPanelOpen) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -217,15 +222,23 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             color: isDark ? Colors.white : Colors.black87,
           ),
         ),
-        IconButton(
-          icon: Icon(
-            Icons.playlist_play,
-            color: isDark ? Colors.white70 : Colors.black54,
-            size: 28,
+        // Only show playlist button when panel is open
+        // Use Visibility widget to completely remove it from the widget tree when collapsed
+        Visibility(
+          visible: isPanelOpen,
+          maintainSize: false,
+          maintainAnimation: false,
+          maintainState: false,
+          child: IconButton(
+            icon: Icon(
+              Icons.playlist_play,
+              color: isDark ? Colors.white70 : Colors.black54,
+              size: 28,
+            ),
+            onPressed: () {
+              _showCurrentPlaylist(isDark);
+            },
           ),
-          onPressed: () {
-            _showCurrentPlaylist(isDark);
-          },
         ),
       ],
     );
@@ -261,7 +274,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        // ... (rest of the playlist modal remains the same)
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -471,188 +483,312 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             processingState == ProcessingState.buffering ||
             processingState == ProcessingState.loading;
 
+        // Responsive layout for controls
         final screenWidth = MediaQuery.of(context).size.width;
-        final isSmallScreen = screenWidth < 380;
-        final iconSize = isSmallScreen ? 55.0 : 65.0;
-        final sideIconSize = isSmallScreen ? 35.0 : 40.0;
+        final isSmallScreen = screenWidth < 360;
 
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // Shuffle Button
-            StreamBuilder<bool>(
-              stream: _audioPlayer.shuffleModeEnabledStream.distinct(),
-              builder: (context, snapshot) {
-                final shuffleModeEnabled = snapshot.data ?? false;
-                return IconButton(
-                  iconSize: sideIconSize * 0.7,
-                  icon: Icon(
-                    shuffleModeEnabled ? Icons.shuffle_on : Icons.shuffle,
-                    color:
-                        shuffleModeEnabled
-                            ? Theme.of(context).primaryColor
-                            : (isDark ? Colors.white70 : Colors.black54),
-                  ),
-                  onPressed: () async {
-                    final enable = !shuffleModeEnabled;
-                    await _audioPlayer.setShuffleModeEnabled(enable);
-                  },
-                );
-              },
+        return isSmallScreen
+            ? _buildCompactControls(isDark, playing, isBuffering)
+            : _buildFullControls(isDark, playing, isBuffering);
+      },
+    );
+  }
+
+  Widget _buildCompactControls(bool isDark, bool playing, bool isBuffering) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildControlButton(
+          icon: Icons.skip_previous,
+          size: 36,
+          color:
+              _audioPlayer.hasPrevious
+                  ? isDark ? Colors.white : Colors.black87
+                  : isDark ? Colors.white30 : Colors.black26,
+          onPressed:
+              _audioPlayer.hasPrevious
+                  ? () {
+                      _audioPlayer.seekToPrevious();
+                      HapticFeedback.mediumImpact();
+                    }
+                  : null,
+        ),
+        const SizedBox(width: 16),
+        Container(
+          width: 70,
+          height: 70,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).primaryColor.withOpacity(0.8),
+                Theme.of(context).primaryColor,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            // Previous Button
-            IconButton(
-              iconSize: sideIconSize,
-              icon: Icon(
-                Icons.skip_previous_rounded,
-                color: isDark ? Colors.white : Colors.black87,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                blurRadius: 15,
+                spreadRadius: 2,
+                offset: const Offset(0, 5),
               ),
-              onPressed:
-                  _audioPlayer.hasPrevious ? _audioPlayer.seekToPrevious : null,
-            ),
-            // Play/Pause Button
-            Container(
-              width: iconSize,
-              height: iconSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).primaryColor.withOpacity(0.8),
-                    Theme.of(context).primaryColor,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).primaryColor.withOpacity(0.4),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                iconSize: iconSize * 0.6,
-                icon:
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap:
+                  isBuffering
+                      ? null
+                      : () {
+                          if (playing) {
+                            _audioPlayer.pause();
+                          } else {
+                            _audioPlayer.play();
+                          }
+                          HapticFeedback.mediumImpact();
+                        },
+              customBorder: const CircleBorder(),
+              child: Center(
+                child:
                     isBuffering
-                        ? const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
+                        ? const SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                            strokeWidth: 3,
+                          ),
                         )
                         : Icon(
                           playing
                               ? Icons.pause_rounded
                               : Icons.play_arrow_rounded,
                           color: Colors.white,
+                          size: 40,
                         ),
-                onPressed: () {
-                  if (playing) {
-                    _audioPlayer.pause();
-                  } else {
-                    _audioPlayer.play();
-                  }
-                },
               ),
             ),
-            // Next Button
-            IconButton(
-              iconSize: sideIconSize,
-              icon: Icon(
-                Icons.skip_next_rounded,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-              onPressed: _audioPlayer.hasNext ? _audioPlayer.seekToNext : null,
-            ),
-            // Repeat Button
-            StreamBuilder<LoopMode>(
-              stream: _audioPlayer.loopModeStream.distinct(),
-              builder: (context, snapshot) {
-                final loopMode = snapshot.data ?? LoopMode.off;
-                final icons = [Icons.repeat, Icons.repeat_one, Icons.repeat];
-                const cycleModes = [LoopMode.off, LoopMode.one, LoopMode.all];
-                final index = cycleModes.indexOf(loopMode);
-                return IconButton(
-                  iconSize: sideIconSize * 0.7,
-                  icon: Icon(
-                    icons[index],
-                    color:
-                        loopMode != LoopMode.off
-                            ? Theme.of(context).primaryColor
-                            : (isDark ? Colors.white70 : Colors.black54),
-                  ),
-                  onPressed: () {
-                    _audioPlayer.setLoopMode(
-                      cycleModes[(index + 1) % cycleModes.length],
-                    );
-                  },
-                );
-              },
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+        const SizedBox(width: 16),
+        _buildControlButton(
+          icon: Icons.skip_next,
+          size: 36,
+          color:
+              _audioPlayer.hasNext
+                  ? isDark ? Colors.white : Colors.black87
+                  : isDark ? Colors.white30 : Colors.black26,
+          onPressed:
+              _audioPlayer.hasNext
+                  ? () {
+                      _audioPlayer.seekToNext();
+                      HapticFeedback.mediumImpact();
+                    }
+                  : null,
+        ),
+      ],
     );
   }
 
-  // This widget listens to position changes
+  Widget _buildFullControls(bool isDark, bool playing, bool isBuffering) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildControlButton(
+          icon: Icons.replay_10,
+          size: 32,
+          color: isDark ? Colors.white70 : Colors.black54,
+          onPressed: () {
+            final position = _audioPlayer.position;
+            final newPosition = position - const Duration(seconds: 10);
+            _audioPlayer.seek(
+              newPosition < Duration.zero ? Duration.zero : newPosition,
+            );
+            HapticFeedback.lightImpact();
+          },
+        ),
+        _buildControlButton(
+          icon: Icons.skip_previous,
+          size: 36,
+          color:
+              _audioPlayer.hasPrevious
+                  ? isDark ? Colors.white : Colors.black87
+                  : isDark ? Colors.white30 : Colors.black26,
+          onPressed:
+              _audioPlayer.hasPrevious
+                  ? () {
+                      _audioPlayer.seekToPrevious();
+                      HapticFeedback.mediumImpact();
+                    }
+                  : null,
+        ),
+        Container(
+          width: 70,
+          height: 70,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).primaryColor.withOpacity(0.8),
+                Theme.of(context).primaryColor,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).primaryColor.withOpacity(0.3),
+                blurRadius: 15,
+                spreadRadius: 2,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap:
+                  isBuffering
+                      ? null
+                      : () {
+                          if (playing) {
+                            _audioPlayer.pause();
+                          } else {
+                            _audioPlayer.play();
+                          }
+                          HapticFeedback.mediumImpact();
+                        },
+              customBorder: const CircleBorder(),
+              child: Center(
+                child:
+                    isBuffering
+                        ? const SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                            strokeWidth: 3,
+                          ),
+                        )
+                        : Icon(
+                          playing
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+              ),
+            ),
+          ),
+        ),
+        _buildControlButton(
+          icon: Icons.skip_next,
+          size: 36,
+          color:
+              _audioPlayer.hasNext
+                  ? isDark ? Colors.white : Colors.black87
+                  : isDark ? Colors.white30 : Colors.black26,
+          onPressed:
+              _audioPlayer.hasNext
+                  ? () {
+                      _audioPlayer.seekToNext();
+                      HapticFeedback.mediumImpact();
+                    }
+                  : null,
+        ),
+        _buildControlButton(
+          icon: Icons.forward_10,
+          size: 32,
+          color: isDark ? Colors.white70 : Colors.black54,
+          onPressed: () {
+            final position = _audioPlayer.position;
+            final duration = _audioPlayer.duration ?? Duration.zero;
+            final newPosition = position + const Duration(seconds: 10);
+            _audioPlayer.seek(newPosition > duration ? duration : newPosition);
+            HapticFeedback.lightImpact();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required double size,
+    required Color color,
+    required VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(icon),
+      iconSize: size,
+      color: color,
+      onPressed: onPressed,
+      splashRadius: 24,
+    );
+  }
+
   Widget _buildSeekBar(bool isDark) {
     return StreamBuilder<PositionData>(
-      stream: _positionDataStream, // Already distinct
+      stream: _positionDataStream,
       builder: (context, snapshot) {
-        final positionData =
-            snapshot.data ??
-            PositionData(Duration.zero, Duration.zero, Duration.zero);
-        final position = positionData.position;
-        final duration = positionData.duration;
+        final positionData = snapshot.data ??
+            PositionData(
+              Duration.zero,
+              Duration.zero,
+              Duration.zero,
+            );
 
         return Column(
           children: [
             SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 3.0,
+              data: SliderThemeData(
+                trackHeight: 4,
                 thumbShape: const RoundSliderThumbShape(
-                  enabledThumbRadius: 7.0,
+                  enabledThumbRadius: 6,
                 ),
                 overlayShape: const RoundSliderOverlayShape(
-                  overlayRadius: 15.0,
+                  overlayRadius: 14,
                 ),
                 activeTrackColor: Theme.of(context).primaryColor,
-                inactiveTrackColor:
-                    isDark ? Colors.grey[700] : Colors.grey[300],
+                inactiveTrackColor: isDark ? Colors.grey[700] : Colors.grey[300],
                 thumbColor: Theme.of(context).primaryColor,
-                overlayColor: Theme.of(context).primaryColor.withAlpha(50),
+                overlayColor: Theme.of(context).primaryColor.withOpacity(0.2),
               ),
               child: Slider(
                 min: 0.0,
-                max: duration.inMilliseconds.toDouble().clamp(
-                  0.0,
-                  double.infinity,
-                ),
-                value: position.inMilliseconds.toDouble().clamp(
-                  0.0,
-                  duration.inMilliseconds.toDouble(),
-                ),
+                max: positionData.duration.inMilliseconds.toDouble(),
+                value: positionData.position.inMilliseconds.toDouble().clamp(
+                      0.0,
+                      positionData.duration.inMilliseconds.toDouble(),
+                    ),
                 onChanged: (value) {
-                  _audioPlayer.seek(Duration(milliseconds: value.toInt()));
+                  _audioPlayer.seek(
+                    Duration(milliseconds: value.round()),
+                  );
                 },
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _formatDuration(position),
+                    _formatDuration(positionData.position),
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: isDark ? Colors.grey[400] : Colors.grey[600],
                     ),
                   ),
                   Text(
-                    _formatDuration(duration),
+                    _formatDuration(positionData.duration),
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -667,56 +803,63 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     );
   }
 
-  // This widget listens to volume changes
   Widget _buildVolumeControl(bool isDark) {
-    return Row(
-      children: [
-        Icon(
-          Icons.volume_down,
-          color: isDark ? Colors.grey[400] : Colors.grey[600],
-        ),
-        Expanded(
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 2.0,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
-              activeTrackColor: isDark ? Colors.grey[500] : Colors.grey[700],
-              inactiveTrackColor: isDark ? Colors.grey[700] : Colors.grey[300],
-              thumbColor: isDark ? Colors.grey[400] : Colors.grey[600],
-              overlayColor:
-                  isDark
-                      ? Colors.grey[400]?.withAlpha(50)
-                      : Colors.grey[600]?.withAlpha(50),
-            ),
-            child: StreamBuilder<double>(
-              stream: _audioPlayer.volumeStream.distinct(), // Use distinct
-              builder: (context, snapshot) {
-                return Slider(
-                  min: 0.0,
-                  max: 1.0,
-                  value: snapshot.data ?? 0.5,
-                  onChanged: _audioPlayer.setVolume,
-                );
+    return StreamBuilder<double>(
+      stream: _audioPlayer.volumeStream,
+      builder: (context, snapshot) {
+        final volume = snapshot.data ?? 1.0;
+        
+        return Row(
+          children: [
+            IconButton(
+              icon: Icon(
+                volume <= 0 ? Icons.volume_off : Icons.volume_down,
+                color: isDark ? Colors.white70 : Colors.black54,
+                size: 20,
+              ),
+              onPressed: () {
+                _audioPlayer.setVolume(volume <= 0 ? 1.0 : 0.0);
               },
             ),
-          ),
-        ),
-        Icon(
-          Icons.volume_up,
-          color: isDark ? Colors.grey[400] : Colors.grey[600],
-        ),
-      ],
+            Expanded(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 3,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 5,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 12,
+                  ),
+                  activeTrackColor: Theme.of(context).primaryColor.withOpacity(0.7),
+                  inactiveTrackColor: isDark ? Colors.grey[700] : Colors.grey[300],
+                  thumbColor: Theme.of(context).primaryColor,
+                  overlayColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                ),
+                child: Slider(
+                  min: 0.0,
+                  max: 1.0,
+                  value: volume,
+                  onChanged: (value) {
+                    _audioPlayer.setVolume(value);
+                  },
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.volume_up,
+                color: isDark ? Colors.white70 : Colors.black54,
+                size: 20,
+              ),
+              onPressed: () {
+                _audioPlayer.setVolume(1.0);
+              },
+            ),
+          ],
+        );
+      },
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return duration.inHours > 0
-        ? "${twoDigits(duration.inHours)}:$minutes:$seconds"
-        : "$minutes:$seconds";
   }
 
   Widget _buildFallbackArt(bool isDark, {bool isLoading = false}) {
@@ -726,96 +869,127 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Theme.of(context).primaryColor.withOpacity(isDark ? 0.5 : 0.7),
-            Theme.of(context).primaryColor.withOpacity(isDark ? 0.8 : 1.0),
+            Theme.of(context).primaryColor.withOpacity(0.7),
+            Theme.of(context).primaryColor,
           ],
         ),
       ),
       child: Center(
-        child:
-            isLoading
-                ? CircularProgressIndicator(
-                  color: Colors.white.withOpacity(0.7),
-                )
-                : Icon(
-                  Icons.music_note,
-                  size: 120,
-                  color: Colors.white.withOpacity(0.5),
+        child: isLoading
+            ? CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isDark ? Colors.white70 : Colors.white,
                 ),
+              )
+            : Icon(
+                Icons.music_note,
+                size: 80,
+                color: isDark ? Colors.white30 : Colors.white70,
+              ),
       ),
     );
   }
 
   Widget _buildErrorState(bool isDark) {
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, color: Colors.red, size: 60),
-            const SizedBox(height: 16),
-            Text(
-              'Playback Error',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black,
-              ),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 80,
+            color: isDark ? Colors.red[300] : Colors.red,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Error loading player",
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'An error occurred during playback.',
-              style: GoogleFonts.poppins(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Please try again later",
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildLoadingState(bool isDark) {
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      body: Center(
-        child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 60,
+            height: 60,
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).primaryColor,
+              ),
+              strokeWidth: 3,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Loading player...",
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildEmptyState(bool isDark) {
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.music_off_outlined,
-              size: 80,
-              color: isDark ? Colors.grey[600] : Colors.grey[400],
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.music_off,
+            size: 80,
+            color: isDark ? Colors.grey[600] : Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "No music playing",
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Nothing Playing',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Select a song to start listening",
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Select a song to start listening.',
-              style: GoogleFonts.poppins(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+
+    return duration.inHours > 0
+        ? '$hours:$minutes:$seconds'
+        : '$minutes:$seconds';
   }
 }

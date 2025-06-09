@@ -90,73 +90,50 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen>
     super.dispose();
   }
 
-  // Updated function to delete song from library
+  // FIXED: Updated function to only remove song from playlist, not delete from library
   Future<void> _removeSong(int index) async {
     if (index < 0 || index >= _playlist.songs.length) return; // Bounds check
 
-    final path = _playlist.songs[index];
-    final trackKey = _trackBox.keys.firstWhere(
-      (key) => _trackBox.get(key)?.mp3Path == path,
-      orElse: () => null,
-    );
-    final track = trackKey != null ? _trackBox.get(trackKey) : null;
-
-    // 1. Delete MP3 file
-    try {
-      final mp3File = File(path);
-      if (await mp3File.exists()) {
-        await mp3File.delete();
-      }
-    } catch (e) {
-      print("Error deleting MP3 file: $e");
-      // Optionally show an error message to the user
-    }
-
-    // 2. Delete Thumbnail file
-    if (track != null && track.thumbPath.isNotEmpty) {
-      try {
-        final thumbFile = File(track.thumbPath);
-        if (await thumbFile.exists()) {
-          await thumbFile.delete();
-        }
-      } catch (e) {
-        print("Error deleting thumbnail file: $e");
-      }
-    }
-
-    // 3. Remove from Hive
-    if (trackKey != null) {
-      try {
-        await _trackBox.delete(trackKey);
-      } catch (e) {
-        print("Error deleting track from Hive: $e");
-      }
-    }
-
-    // 4. Update playlist state
+    // Only remove the song from the playlist's songs list
     if (mounted) {
       setState(() {
-        // Ensure index is still valid after potential async gaps
-        if (index < _playlist.songs.length && _playlist.songs[index] == path) {
-          _playlist.songs.removeAt(index);
-        }
+        _playlist.songs.removeAt(index);
       });
-      widget.onPlaylistUpdated(_playlist); // Notify parent
+      widget.onPlaylistUpdated(_playlist); // Notify parent of playlist update
     }
 
-    // 5. Show confirmation
+    // Show confirmation
     if (mounted) {
-      // Check if the widget is still in the tree
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Song deleted from library',
+            'Song removed from playlist',
             style: GoogleFonts.poppins(),
           ),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.red[700],
+          backgroundColor: Colors.orange[700],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
+          ),
+          action: SnackBarAction(
+            label: 'UNDO',
+            textColor: Colors.white,
+            onPressed: () {
+              // This would require storing the removed song path and index
+              // For simplicity, we'll just notify the user that they need to add it again
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Please use "Add Songs" to add the song back',
+                    style: GoogleFonts.poppins(),
+                  ),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -490,148 +467,133 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen>
                       child: SlideAnimation(
                         verticalOffset: 50.0,
                         child: FadeInAnimation(
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors:
-                                    isDark
-                                        ? [Colors.grey[850]!, Colors.grey[800]!]
-                                        : [Colors.white, Colors.grey[50]!],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                          child: Dismissible(
+                            key: ValueKey(path), // Unique key for each item
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20.0),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      isDark
-                                          ? Colors.black.withOpacity(0.3)
-                                          : Colors.grey.withOpacity(0.2),
-                                  spreadRadius: 1,
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
+                              child: const Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(16),
-                                onTap: () => _playSong(index),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 60,
-                                        height: 60,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
+                            confirmDismiss: (direction) async {
+                              // Show confirmation dialog
+                              return await showDialog<bool>(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title: Text(
+                                      'Remove from Playlist',
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    content: Text(
+                                      'Do you want to remove this song from the playlist?\n\nThe song will remain in your library.',
+                                      style: GoogleFonts.poppins(),
+                                    ),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: Text(
+                                          'CANCEL',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.grey[600],
                                           ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.2,
-                                              ),
-                                              spreadRadius: 1,
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          child:
-                                              hasThumb
-                                                  ? Image.file(
-                                                    File(potentialThumbPath),
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder:
-                                                        (
-                                                          context,
-                                                          error,
-                                                          stackTrace,
-                                                        ) => _buildFallbackIcon(
-                                                          context,
-                                                        ),
-                                                  )
-                                                  : _buildFallbackIcon(context),
                                         ),
                                       ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              formattedName,
-                                              style: GoogleFonts.poppins(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 15,
-                                                color:
-                                                    isDark
-                                                        ? Colors.white
-                                                        : Colors.black87,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.music_note,
-                                                  size: 14,
-                                                  color:
-                                                      isDark
-                                                          ? Colors.grey[400]
-                                                          : Colors.grey[600],
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  "Track ${index + 1}",
-                                                  style: GoogleFonts.poppins(
-                                                    color:
-                                                        isDark
-                                                            ? Colors.grey[400]
-                                                            : Colors.grey[600],
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        child: Text(
+                                          'REMOVE',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.red,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
-                                      ),
-                                      // Updated delete button
-                                      IconButton(
-                                        icon: Icon(
-                                          Icons
-                                              .delete_forever_outlined, // Changed icon
-                                          color:
-                                              isDark
-                                                  ? Colors.red[300]
-                                                  : Colors.red[700],
-                                        ),
-                                        onPressed:
-                                            () => _removeSong(
-                                              index,
-                                            ), // Calls the updated function
-                                        tooltip: 'Delete from Library',
-                                        splashRadius: 20,
                                       ),
                                     ],
+                                  );
+                                },
+                              );
+                            },
+                            onDismissed: (direction) {
+                              _removeSong(index);
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: isDark
+                                      ? [
+                                          Colors.grey[850]!,
+                                          Colors.grey[800]!,
+                                        ]
+                                      : [
+                                          Colors.white,
+                                          Colors.grey[50]!,
+                                        ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                leading: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: SizedBox(
+                                    width: 50,
+                                    height: 50,
+                                    child: hasThumb
+                                        ? Image.file(
+                                            File(potentialThumbPath),
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    _buildFallbackIcon(context),
+                                          )
+                                        : _buildFallbackIcon(context),
                                   ),
                                 ),
+                                title: Text(
+                                  formattedName,
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w500,
+                                    color:
+                                        isDark ? Colors.white : Colors.black87,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    Icons.play_circle_fill,
+                                    color: primaryColor,
+                                    size: 36,
+                                  ),
+                                  onPressed: () => _playSong(index),
+                                ),
+                                onTap: () => _playSong(index),
                               ),
                             ),
                           ),

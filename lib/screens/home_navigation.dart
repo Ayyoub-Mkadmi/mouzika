@@ -3,17 +3,35 @@ import 'package:flutter/material.dart';
 import 'package:mouzika/screens/playlist_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
-import 'search_screen.dart'; // Assuming this is the correct path now
+import 'search_screen.dart';
 import 'music_library_screen.dart';
-// Use the fixed NowPlayingScreen for the panel content
 import 'now_playing_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart'; // Import the panel package
-// *** IMPORT THE MINI PLAYER WITHOUT PROGRESS BAR ***
-import '../widgets/mini_player_widget.dart'; // Import the mini player without progress bar
-import 'package:mouzika/services/audio_player_manager.dart'; // To check player state
-import 'package:just_audio/just_audio.dart'; // For PlayerState
+import 'package:sliding_up_panel/sliding_up_panel.dart';
+import '../widgets/mini_player_widget.dart';
+import 'package:mouzika/services/audio_player_manager.dart';
+import 'package:just_audio/just_audio.dart';
+
+// Create a provider to pass panel state to children
+class PanelStateProvider extends InheritedWidget {
+  final bool isPanelOpen;
+  
+  const PanelStateProvider({
+    Key? key,
+    required this.isPanelOpen,
+    required Widget child,
+  }) : super(key: key, child: child);
+  
+  static PanelStateProvider? of(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<PanelStateProvider>();
+  }
+  
+  @override
+  bool updateShouldNotify(PanelStateProvider oldWidget) {
+    return isPanelOpen != oldWidget.isPanelOpen;
+  }
+}
 
 final GlobalKey<_HomeNavigationState> homeNavKey =
     GlobalKey<_HomeNavigationState>();
@@ -29,10 +47,9 @@ class _HomeNavigationState extends State<HomeNavigation>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _animationController;
-  final PanelController _panelController =
-      PanelController(); // Controller for the panel
-  final AudioPlayer _audioPlayer =
-      AudioPlayerManager().audioPlayer; // Get audio player instance
+  final PanelController _panelController = PanelController();
+  final AudioPlayer _audioPlayer = AudioPlayerManager().audioPlayer;
+  bool _isPanelOpen = false; // Track panel state
 
   static const List<String> _titles = ['Search', 'Library', 'Playlists'];
 
@@ -58,14 +75,12 @@ class _HomeNavigationState extends State<HomeNavigation>
     super.dispose();
   }
 
-  // Function to open the Now Playing panel
   void openNowPlayingPanel() {
     if (_panelController.isAttached && !_panelController.isPanelOpen) {
       _panelController.open();
     }
   }
 
-  // Function to navigate to a specific tab
   void _navigateToTab(int index) {
     if (_selectedIndex != index) {
       HapticFeedback.selectionClick();
@@ -82,33 +97,27 @@ class _HomeNavigationState extends State<HomeNavigation>
     final screenHeight = MediaQuery.of(context).size.height;
     final screenPadding = MediaQuery.of(context).padding;
     final appBarHeight = AppBar().preferredSize.height;
-    // *** USE HEIGHT OF MINI PLAYER WITHOUT PROGRESS BAR ***
     final miniPlayerHeight = 65.0;
 
-    // Estimate the bottom navigation bar height (SafeArea + nav bar)
     final bottomNavBarHeight =
         kBottomNavigationBarHeight +
         screenPadding.bottom +
-        24; // 24 is your nav bar's vertical padding
+        24;
 
-    // Panel should fill the space below the AppBar and above the bottom navigation/system areas
     final panelMaxHeight =
         screenHeight - appBarHeight - screenPadding.top - bottomNavBarHeight;
 
-    // Create gradient colors based on theme
     final List<Color> gradientColors =
         isDark
             ? [primaryColor.withOpacity(0.7), primaryColor]
             : [primaryColor.withOpacity(0.6), primaryColor];
 
-    // Screens for the main body (excluding Now Playing)
     final screens = [
       const SearchScreen(),
       const MusicLibraryScreen(),
       const PlaylistScreen(),
     ];
 
-    // Define the AppBar separately to easily access its height
     final appBar = AppBar(
       elevation: 0,
       backgroundColor: isDark ? Colors.grey[900] : Colors.white,
@@ -178,7 +187,7 @@ class _HomeNavigationState extends State<HomeNavigation>
                 systemNavigationBarIconBrightness: Brightness.dark,
               ),
       child: Scaffold(
-        appBar: appBar, // Use the defined AppBar
+        appBar: appBar,
         body: StreamBuilder<SequenceState?>(
           stream: _audioPlayer.sequenceStateStream,
           builder: (context, sequenceSnapshot) {
@@ -198,24 +207,24 @@ class _HomeNavigationState extends State<HomeNavigation>
                     child: screens[_selectedIndex],
                   ),
                 ),
-                // SlidingUpPanel
+                // SlidingUpPanel with PanelStateProvider
                 SlidingUpPanel(
                   controller: _panelController,
                   minHeight: showMiniPlayer ? miniPlayerHeight : 0,
-                  // *** USE CALCULATED MAX HEIGHT ***
                   maxHeight: panelMaxHeight,
-                  panel: Builder(
-                    builder:
-                        (context) => NowPlayingScreen(
-                          key: ValueKey(sequenceSnapshot.data?.currentSource),
-                        ),
+                  panel: PanelStateProvider(
+                    isPanelOpen: _isPanelOpen,
+                    child: Builder(
+                      builder: (context) => NowPlayingScreen(
+                        key: ValueKey(sequenceSnapshot.data?.currentSource),
+                      ),
+                    ),
                   ),
                   collapsed: Builder(
-                    builder:
-                        (context) => MiniPlayerWidget(
-                          key: ValueKey(sequenceSnapshot.data?.currentSource),
-                          onTap: openNowPlayingPanel,
-                        ),
+                    builder: (context) => MiniPlayerWidget(
+                      key: ValueKey(sequenceSnapshot.data?.currentSource),
+                      onTap: openNowPlayingPanel,
+                    ),
                   ),
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(24.0),
@@ -224,6 +233,12 @@ class _HomeNavigationState extends State<HomeNavigation>
                   backdropOpacity: 0.5,
                   parallaxEnabled: true,
                   parallaxOffset: 0.1,
+                  onPanelSlide: (position) {
+                    // Update panel state based on position
+                    setState(() {
+                      _isPanelOpen = position > 0.2; // Consider panel "open" when it's more than 20% expanded
+                    });
+                  },
                   body: null,
                 ),
               ],
@@ -233,7 +248,6 @@ class _HomeNavigationState extends State<HomeNavigation>
         bottomNavigationBar: StreamBuilder<SequenceState?>(
           stream: _audioPlayer.sequenceStateStream,
           builder: (context, sequenceSnapshot) {
-            // Bottom Nav Bar remains the same
             return Container(
               decoration: BoxDecoration(
                 color: isDark ? Colors.grey[900] : Colors.white,
@@ -284,7 +298,6 @@ class _HomeNavigationState extends State<HomeNavigation>
     );
   }
 
-  // Build individual navigation items (no changes needed here)
   Widget _buildNavItem(int index, bool isDark, Color primaryColor) {
     final isSelected = _selectedIndex == index;
 
@@ -302,9 +315,7 @@ class _HomeNavigationState extends State<HomeNavigation>
               isSelected
                   ? (isDark
                       ? primaryColor.withOpacity(0.3)
-                      : primaryColor.withOpacity(
-                        0.1,
-                      )) // Increased opacity for dark mode background
+                      : primaryColor.withOpacity(0.1))
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
@@ -315,9 +326,7 @@ class _HomeNavigationState extends State<HomeNavigation>
               _icons[index],
               color:
                   isSelected
-                      ? (isDark
-                          ? Colors.white
-                          : primaryColor) // White in dark mode, purple in light
+                      ? (isDark ? Colors.white : primaryColor)
                       : (isDark ? Colors.grey[400] : Colors.grey[600]),
               size: isSelected ? 24 : 22,
             ),
@@ -326,10 +335,7 @@ class _HomeNavigationState extends State<HomeNavigation>
               Text(
                 _titles[index],
                 style: GoogleFonts.poppins(
-                  color:
-                      isDark
-                          ? Colors.white
-                          : primaryColor, // White in dark mode, purple in light
+                  color: isDark ? Colors.white : primaryColor,
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),
