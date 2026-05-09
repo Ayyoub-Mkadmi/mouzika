@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:mouzika/models/video_result.dart';
 import 'package:mouzika/services/api_service.dart';
 import 'package:mouzika/services/audio_player_manager.dart';
 import 'package:mouzika/services/downloader.dart';
+import 'package:mouzika/services/recommendation_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -21,6 +23,7 @@ import '../widgets/search_result_item.dart';
 import '../widgets/recently_played_section.dart';
 import '../widgets/playlists_section.dart';
 import '../widgets/search_state_widgets.dart';
+import '../widgets/recommendations_section.dart';
 // *** IMPORT THE API KEY SETTINGS SCREEN ***
 import 'api_key_settings_screen.dart'; 
 
@@ -47,6 +50,13 @@ class _SearchScreenState extends State<SearchScreen>
   late Animation<double> _fadeAnimation;
   final YoutubeExplode _ytExplode = YoutubeExplode();
   bool _isFetchingStream = false;
+
+  /// Debounce timer to prevent rapid-fire search calls
+  Timer? _debounceTimer;
+
+  /// Key for the recommendations section to allow refresh
+  final GlobalKey<RecommendationsSectionState> _recommendationsKey =
+      GlobalKey<RecommendationsSectionState>();
 
   // *** Variables for hidden access gesture ***
   int _tapCount = 0;
@@ -141,6 +151,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _animationController.dispose();
     _controller.dispose();
     _ytExplode.close();
@@ -148,28 +159,37 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   Future<void> _searchVideos(String query) async {
-    if (query.isEmpty) {
+    // Cancel any pending debounce
+    _debounceTimer?.cancel();
+
+    if (query.trim().isEmpty) {
       if (!mounted) return;
       setState(() {
         _isSearchMode = false;
         _results = [];
+        _error = null;
       });
       return;
     }
+
     if (!mounted) return;
     setState(() {
       _isSearchMode = true;
       _isLoading = true;
       _error = null;
     });
+
     try {
-      final results = await ApiService.searchVideos(query);
+      final results = await ApiService.searchVideos(query.trim());
       if (!mounted) return;
       setState(() {
         _results = results;
       });
       _animationController.reset();
       _animationController.forward();
+
+      // Record for recommendation engine (non-blocking)
+      RecommendationService().recordSearch(query.trim());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -180,6 +200,28 @@ class _SearchScreenState extends State<SearchScreen>
     setState(() {
       _isLoading = false;
     });
+  }
+
+  /// Debounced search — waits 500ms after last keystroke before searching
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+
+    if (value.isEmpty && _isSearchMode) {
+      if (!mounted) return;
+      setState(() {
+        _isSearchMode = false;
+        _results = [];
+        _error = null;
+      });
+      return;
+    }
+
+    // Only auto-search if query is at least 3 chars
+    if (value.length >= 3) {
+      _debounceTimer = Timer(const Duration(milliseconds: 600), () {
+        _searchVideos(value);
+      });
+    }
   }
 
   void _onTrackPlayed(Track track) {
@@ -219,6 +261,12 @@ class _SearchScreenState extends State<SearchScreen>
     );
     _loadTracks();
     _loadRecentlyPlayed();
+
+    // Invalidate recommendation cache after new download
+    if (ok) {
+      RecommendationService().invalidateCache();
+      _recommendationsKey.currentState?.refresh();
+    }
   }
 
   Future<void> _onPlayVideo(VideoResult video) async {
@@ -245,7 +293,7 @@ class _SearchScreenState extends State<SearchScreen>
         id: streamUrl.toString(),
         title: video.title,
         artUri: Uri.parse(video.thumbnailUrl),
-        artist: "Unknown Artist",
+        artist: video.channelTitle.isNotEmpty ? video.channelTitle : "Unknown Artist",
         extras: {'videoId': video.videoId},
       );
       final audioSource = AudioSource.uri(streamUrl, tag: mediaItem);
@@ -347,6 +395,12 @@ class _SearchScreenState extends State<SearchScreen>
               _loadRecentlyPlayed();
             },
           ),
+          // Recommendation section
+          RecommendationsSection(
+            key: _recommendationsKey,
+            onPlay: _onPlayVideo,
+            onDownload: _onDownloadVideo,
+          ),
           PlaylistsSection(
             playlists: _playlists,
             tracks: _tracks,
@@ -397,15 +451,7 @@ class _SearchScreenState extends State<SearchScreen>
           SearchBarWidget(
             controller: _controller,
             onSubmitted: _searchVideos,
-            onChanged: (value) {
-              if (value.isEmpty && _isSearchMode) {
-                if (!mounted) return;
-                setState(() {
-                  _isSearchMode = false;
-                  _results = [];
-                });
-              }
-            },
+            onChanged: _onSearchChanged,
             onSearchPressed: () => _searchVideos(_controller.text),
           ),
           Expanded(
@@ -420,4 +466,3 @@ class _SearchScreenState extends State<SearchScreen>
     // *** End GestureDetector wrapper ***
   }
 }
-

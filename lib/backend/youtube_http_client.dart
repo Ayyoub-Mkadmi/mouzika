@@ -16,6 +16,9 @@ class ProxyHttpClient extends YoutubeHttpClient {
   final String gateway;
   final http.Client _client = http.Client();
 
+  /// Per-request timeout (prevents hanging on dead proxies).
+  static const Duration _timeout = Duration(seconds: 12);
+
   ProxyHttpClient(this.gateway);
 
   /*-----------------------------------------------------------
@@ -25,7 +28,7 @@ class ProxyHttpClient extends YoutubeHttpClient {
       Uri.parse('$gateway${Uri.encodeFull(originalUrl.toString())}');
 
   Future<http.Response> _doGet(Uri uri, Map<String, String>? headers) =>
-      _client.get(uri, headers: headers);
+      _client.get(uri, headers: headers).timeout(_timeout);
 
   /*-----------------------------------------------------------
   | YoutubeHttpClient overrides

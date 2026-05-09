@@ -21,7 +21,7 @@ class SearchStateWidgets {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.music_note,
+                Icons.music_off_rounded,
                 color: Theme.of(context).primaryColor.withOpacity(0.7),
                 size: 60,
               ),
@@ -85,26 +85,42 @@ class SearchStateWidgets {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.red[900]!.withOpacity(0.2)
-                    : Colors.red[50],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.error_outline_rounded,
-                color: isDark ? Colors.red[300] : Colors.red[400],
-                size: 48,
+            // Animated error icon with pulse effect
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.8, end: 1.0),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: child,
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [Colors.red[900]!.withOpacity(0.3), Colors.red[800]!.withOpacity(0.15)]
+                        : [Colors.red[50]!, Colors.red[100]!.withOpacity(0.5)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.wifi_off_rounded,
+                  color: isDark ? Colors.red[300] : Colors.red[400],
+                  size: 48,
+                ),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              "Oops! Something went wrong",
+              "Connection Issue",
               style: GoogleFonts.poppins(
                 color: isDark ? Colors.white : Colors.grey[800],
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -113,34 +129,117 @@ class SearchStateWidgets {
               errorMessage,
               style: GoogleFonts.poppins(
                 color: isDark ? Colors.grey[300] : Colors.grey[700],
-                fontSize: 15,
+                fontSize: 14,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: Text(
-                "Try Again",
-                style: GoogleFonts.poppins(),
+            const SizedBox(height: 8),
+            // Connection tips
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.grey[800]!.withOpacity(0.4)
+                    : Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
               ),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+              child: Column(
+                children: [
+                  _buildTipRow(
+                    Icons.signal_wifi_4_bar_rounded,
+                    'Check your internet connection',
+                    isDark,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildTipRow(
+                    Icons.vpn_key_off_rounded,
+                    'Try disabling VPN if active',
+                    isDark,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildTipRow(
+                    Icons.text_fields_rounded,
+                    'Try simpler search terms',
+                    isDark,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).primaryColor.withOpacity(0.8),
+                    Theme.of(context).primaryColor,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                elevation: 4,
-                shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).primaryColor.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
                   borderRadius: BorderRadius.circular(30),
+                  onTap: onRetry,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Try Again",
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  static Widget _buildTipRow(IconData icon, String text, bool isDark) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: isDark ? Colors.grey[500] : Colors.grey[500],
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -173,6 +272,14 @@ class SearchStateWidgets {
               color: isDark ? Colors.grey[300] : Colors.grey[700],
               fontSize: 16,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "This may take a moment",
+            style: GoogleFonts.poppins(
+              color: isDark ? Colors.grey[500] : Colors.grey[500],
+              fontSize: 13,
             ),
           ),
         ],

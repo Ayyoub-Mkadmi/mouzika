@@ -147,7 +147,7 @@ class SearchResultItem extends StatelessWidget {
                             Row(
                               children: [
                                 Icon(
-                                  Icons.music_note,
+                                  Icons.person_outline_rounded,
                                   size: 14,
                                   color:
                                       isDark
@@ -155,15 +155,21 @@ class SearchResultItem extends StatelessWidget {
                                           : Colors.grey[600],
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  "YouTube Music",
-                                  style: GoogleFonts.poppins(
-                                    color:
-                                        isDark
-                                            ? Colors.grey[400]
-                                            : Colors.grey[600],
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
+                                Expanded(
+                                  child: Text(
+                                    video.channelTitle.isNotEmpty
+                                        ? video.channelTitle
+                                        : "YouTube Music",
+                                    style: GoogleFonts.poppins(
+                                      color:
+                                          isDark
+                                              ? Colors.grey[400]
+                                              : Colors.grey[600],
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
